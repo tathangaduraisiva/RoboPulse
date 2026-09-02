@@ -800,6 +800,12 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-sm);
 }
 
+[data-theme="dark"] .skeleton,
+.dark .skeleton {
+  background: linear-gradient(90deg, #1a233a 25%, #222d48 37%, #1a233a 63%);
+  background-size: 400% 100%;
+}
+
 @keyframes skeleton-pulse {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }

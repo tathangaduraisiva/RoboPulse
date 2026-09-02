@@ -610,7 +610,7 @@ export const Overview: React.FC<OverviewProps> = ({
             )}
           </div>
 
-          {sensorLoading ? (
+          {sensorLoading && sensorReadings.length === 0 ? (
             <div style={{ display: 'grid', gap: '10px' }}>
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: '36px', borderRadius: 'var(--radius-sm)' }} />
@@ -735,7 +735,7 @@ export const Overview: React.FC<OverviewProps> = ({
           </div>
         </div>
 
-        {sensorLoading ? (
+        {sensorLoading && chartData.length === 0 ? (
           <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="skeleton" style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-sm)' }} />
           </div>
