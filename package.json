@@ -1,0 +1,33 @@
+{
+  "name": "robopulse",
+  "version": "1.0.0",
+  "description": "RoboPulse - Robot Health & Predictive Maintenance Platform",
+  "main": "database/src/db.ts",
+  "scripts": {
+    "db:migrate": "ts-node database/src/migrate.ts",
+    "db:seed": "ts-node database/src/seed.ts",
+    "db:reset": "ts-node database/src/reset.ts",
+    "db:verify": "ts-node database/src/verify.ts",
+    "test:auth": "node test-auth.js"
+  },
+  "keywords": [
+    "predictive-maintenance",
+    "robotics",
+    "iot",
+    "postgresql",
+    "telemetry",
+    "typescript"
+  ],
+  "author": "RoboPulse Team",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.5",
+    "@types/pg": "^8.11.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

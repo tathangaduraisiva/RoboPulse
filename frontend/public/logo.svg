@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <!-- Outer Circular Arc -->
+  <path d="M 132 26 A 94 94 0 1 0 206 122" stroke="#0b2b54" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M 207 140 A 94 94 0 0 1 106 214" stroke="#0b2b54" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+  <!-- Robot Arm Base / Pedestal -->
+  <path d="M 68 206 H 122 V 196 H 116 L 112 174 H 78 L 74 196 H 68 Z" fill="#0b2b54"/>
+  <rect x="80" y="179" width="10" height="2.5" rx="1.2" fill="#ffffff" opacity="0.9"/>
+
+  <!-- Lower Arm Body -->
+  <path d="M 80 174 L 81 126 L 99 124 L 108 174 Z" fill="#0b2b54"/>
+
+  <!-- Shoulder Joint -->
+  <circle cx="88" cy="116" r="22" fill="#0b2b54"/>
+  <circle cx="88" cy="116" r="14" fill="#ffffff"/>
+  <circle cx="88" cy="116" r="7" fill="#0b2b54"/>
+
+  <!-- Upper Arm Link -->
+  <path d="M 94 104 L 140 50 L 154 62 L 104 122 Z" fill="#0b2b54"/>
+
+  <!-- Wrist Joint -->
+  <circle cx="147" cy="56" r="17" fill="#0b2b54"/>
+  <circle cx="147" cy="56" r="10" fill="#ffffff"/>
+  <circle cx="147" cy="56" r="5" fill="#0b2b54"/>
+
+  <!-- Robotic Gripper / Claw -->
+  <path d="M 147 68 L 168 84 L 162 94 L 151 86" fill="#0b2b54"/>
+  <path d="M 166 84 L 175 92 L 188 88 L 180 102 L 168 116 L 162 108 L 170 98 L 166 94" fill="#0b2b54"/>
+  <path d="M 174 102 L 185 112 L 178 126 L 168 120" fill="#0b2b54"/>
+
+  <!-- Gear Group (Lower Right) -->
+  <g transform="translate(144, 160)">
+    <!-- 8 Gear Teeth -->
+    <rect x="-7" y="-45" width="14" height="12" rx="2" fill="#25323e"/>
+    <rect x="-7" y="33" width="14" height="12" rx="2" fill="#25323e"/>
+    <rect x="-45" y="-7" width="12" height="14" rx="2" fill="#25323e"/>
+    <rect x="33" y="-7" width="12" height="14" rx="2" fill="#25323e"/>
+
+    <rect x="20" y="-38" width="12" height="14" rx="2" fill="#25323e" transform="rotate(45 26 -31)"/>
+    <rect x="-38" y="-38" width="12" height="14" rx="2" fill="#25323e" transform="rotate(-45 -32 -31)"/>
+    <rect x="20" y="24" width="12" height="14" rx="2" fill="#25323e" transform="rotate(-45 26 31)"/>
+    <rect x="-38" y="24" width="12" height="14" rx="2" fill="#25323e" transform="rotate(45 -32 31)"/>
+
+    <!-- Gear Body Rim -->
+    <circle cx="0" cy="0" r="38" fill="#25323e"/>
+
+    <!-- Inner Core Background (White disk) -->
+    <circle cx="0" cy="0" r="26" fill="#ffffff"/>
+
+    <!-- Heartbeat / ECG Pulse Waveform Line -->
+    <path d="M -22 1 L -12 1 L -7 11 L 1 -18 L 8 20 L 14 -6 L 18 1 L 22 1"
+          stroke="#0066cc" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>
