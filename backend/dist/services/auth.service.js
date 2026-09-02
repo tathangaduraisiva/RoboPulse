@@ -108,3 +108,22 @@ export async function loginUser(username, password) {
         },
     };
 }
+export async function changeUserPassword(userId, currentPassword, newPassword) {
+    if (!userId || !currentPassword || !newPassword) {
+        throw Object.assign(new Error("All password fields are required"), { statusCode: 400 });
+    }
+    if (!isStrongPassword(newPassword)) {
+        throw Object.assign(new Error("Password must be at least 8 characters and include uppercase, lowercase, and a number."), { statusCode: 400 });
+    }
+    const result = await pool.query(`SELECT id, password_hash FROM users WHERE id = $1 LIMIT 1`, [userId]);
+    const user = result.rows[0];
+    if (!user) {
+        throw Object.assign(new Error("User not found"), { statusCode: 404 });
+    }
+    const currentMatches = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!currentMatches) {
+        throw Object.assign(new Error("Current password is incorrect"), { statusCode: 400 });
+    }
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query(`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [newHash, userId]);
+}

@@ -1,4 +1,4 @@
-import { loginUser, registerUser } from "../services/auth.service.js";
+import { loginUser, registerUser, changeUserPassword } from "../services/auth.service.js";
 export async function login(req, res) {
     try {
         const { username, password } = req.body ?? {};
@@ -88,6 +88,38 @@ export async function register(req, res) {
                     : error instanceof Error && error.message.includes("Password must be at least 8 characters")
                         ? error.message
                         : "Unable to create your account. Please try again.";
+        res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+            success: false,
+            message,
+        });
+    }
+}
+export async function changePassword(req, res) {
+    try {
+        const userId = req.user?.id;
+        const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+        if (!userId) {
+            res.status(401).json({ success: false, message: "Authentication required" });
+            return;
+        }
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            res.status(400).json({ success: false, message: "All password fields are required." });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            res.status(400).json({ success: false, message: "New passwords do not match." });
+            return;
+        }
+        await changeUserPassword(userId, currentPassword, newPassword);
+        res.status(200).json({
+            success: true,
+            message: "Password changed successfully.",
+        });
+    }
+    catch (error) {
+        console.error("[Auth Controller] Change password error:", error instanceof Error ? error.message : error);
+        const statusCode = error instanceof Error && "statusCode" in error ? Number(error.statusCode) : 500;
+        const message = error instanceof Error ? error.message : "Unable to change password.";
         res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
             success: false,
             message,
