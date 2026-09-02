@@ -28,11 +28,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     try {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
+      localStorage.setItem('robopulse_theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
       if (theme === 'dark') {
         document.documentElement.classList.add('dark');
+        document.documentElement.style.backgroundColor = '#0b0f19';
+        document.documentElement.style.colorScheme = 'dark';
       } else {
         document.documentElement.classList.remove('dark');
+        document.documentElement.style.backgroundColor = '#f8fafc';
+        document.documentElement.style.colorScheme = 'light';
       }
     } catch {
       // ignore
