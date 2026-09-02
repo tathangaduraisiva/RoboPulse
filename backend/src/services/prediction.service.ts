@@ -61,8 +61,19 @@ export async function getAllPredictions(): Promise<PredictionRecord[]> {
         ORDER BY ra.robot_id, ra.calculated_at DESC;
     `;
     const result = await pool.query(query);
+    const parsedRows = result.rows.map((r) => ({
+        ...r,
+        health_score: Number(r.health_score) || 0,
+        risk_score: Number(r.risk_score) || 0,
+        temperature_score: Number(r.temperature_score) || 0,
+        vibration_score: Number(r.vibration_score) || 0,
+        runtime_score: Number(r.runtime_score) || 0,
+        error_score: Number(r.error_score) || 0,
+        maintenance_score: Number(r.maintenance_score) || 0,
+    }));
+
     // Sort by risk_score DESC so critical/high risk units appear first
-    const sorted = result.rows.sort((a, b) => Number(b.risk_score) - Number(a.risk_score));
+    const sorted = parsedRows.sort((a, b) => Number(b.risk_score) - Number(a.risk_score));
 
     try {
         if (redisClient.isOpen && sorted.length > 0) {

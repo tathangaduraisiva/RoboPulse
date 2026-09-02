@@ -27,7 +27,13 @@ export async function getSensorReadingsByRobot(robotId) {
       ORDER BY recorded_at DESC
       LIMIT 100;
     `, [robotId]);
-    const rows = result.rows;
+    const rows = result.rows.map((r) => ({
+        ...r,
+        temperature_c: Number(r.temperature_c) || 0,
+        vibration_mm_s: Number(r.vibration_mm_s) || 0,
+        motor_current_a: Number(r.motor_current_a) || 0,
+        pressure_bar: Number(r.pressure_bar) || 0,
+    }));
     try {
         if (redisClient.isOpen && rows.length > 0) {
             await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 10 });
