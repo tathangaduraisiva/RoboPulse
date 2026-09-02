@@ -1,5 +1,18 @@
 import { pool } from "../db/postgres.js";
+import { redisClient } from "../config/redis.js";
 export async function getAllPredictions() {
+    const cacheKey = "predictions:all";
+    try {
+        if (redisClient.isOpen) {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+                return JSON.parse(cached);
+            }
+        }
+    }
+    catch {
+        // Fallback to PostgreSQL
+    }
     const query = `
         SELECT DISTINCT ON (ra.robot_id)
             ra.id,
@@ -27,5 +40,14 @@ export async function getAllPredictions() {
     `;
     const result = await pool.query(query);
     // Sort by risk_score DESC so critical/high risk units appear first
-    return result.rows.sort((a, b) => Number(b.risk_score) - Number(a.risk_score));
+    const sorted = result.rows.sort((a, b) => Number(b.risk_score) - Number(a.risk_score));
+    try {
+        if (redisClient.isOpen && sorted.length > 0) {
+            await redisClient.set(cacheKey, JSON.stringify(sorted), { EX: 15 });
+        }
+    }
+    catch {
+        // Ignore cache errors
+    }
+    return sorted;
 }

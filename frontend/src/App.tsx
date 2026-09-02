@@ -19,6 +19,7 @@ import { fetchAlerts } from './api/alerts';
 import { fetchMaintenance } from './api/maintenance';
 import { fetchPredictions } from './api/predictions';
 import { fetchHealthStatus } from './api/health';
+import { clearSensorCache } from './api/sensors';
 import { loginUser, registerUser } from './api/auth';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
@@ -160,6 +161,7 @@ function AppShell({ user, onLogout }: AppShellProps) {
   }, [executeFleetFetch]);
 
   const handleRefresh = useCallback(() => {
+    clearSensorCache();
     setIsRefreshing(true);
     executeFleetFetch();
   }, [executeFleetFetch]);

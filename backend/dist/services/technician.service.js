@@ -7,24 +7,24 @@ export async function getAllTechnicians() {
     `;
     const result = await pool.query(query);
     const technicians = result.rows;
-    for (const tech of technicians) {
+    await Promise.all(technicians.map(async (tech) => {
         const assignments = await pool.query(`
-            SELECT
-                tra.id,
-                r.id AS robot_id,
-                r.name AS robot_name,
-                r.serial_number AS robot_code,
-                r.model,
-                r.status,
-                COALESCE(pl.name, 'Unassigned') AS production_line
-            FROM technician_robot_assignments tra
-            JOIN robots r ON tra.robot_id = r.id
-            LEFT JOIN production_lines pl ON r.line_id = pl.id
-            WHERE tra.technician_id = $1 AND tra.unassigned_at IS NULL
-            ORDER BY r.name ASC;
-            `, [tech.id]);
+                SELECT
+                    tra.id,
+                    r.id AS robot_id,
+                    r.name AS robot_name,
+                    r.serial_number AS robot_code,
+                    r.model,
+                    r.status,
+                    COALESCE(pl.name, 'Unassigned') AS production_line
+                FROM technician_robot_assignments tra
+                JOIN robots r ON tra.robot_id = r.id
+                LEFT JOIN production_lines pl ON r.line_id = pl.id
+                WHERE tra.technician_id = $1 AND tra.unassigned_at IS NULL
+                ORDER BY r.name ASC;
+                `, [tech.id]);
         tech.assigned_robots = assignments.rows;
-    }
+    }));
     return technicians;
 }
 export async function getTechnicianById(id) {

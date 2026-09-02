@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type { ApiResponse } from '../types/api';
 import type { Robot } from '../types/robot';
 import type { SensorReading } from '../types/sensor';
+import { fetchSensorReadings } from './sensors';
 
 export async function fetchRobots(): Promise<Robot[]> {
   const response = await apiClient.get<ApiResponse<Robot[]>>('/robots');
@@ -13,10 +14,7 @@ export async function fetchRobot(robotId: string): Promise<Robot> {
   return response.data.data;
 }
 
-/** @deprecated Use fetchSensorReadings from sensors.ts */
-export async function fetchRobotReadings(robotId: string): Promise<SensorReading[]> {
-  const response = await apiClient.get<ApiResponse<SensorReading[]>>(
-    `/robots/${encodeURIComponent(robotId)}/sensor-readings`
-  );
-  return response.data.data;
+/** Forward to fetchSensorReadings with caching support */
+export async function fetchRobotReadings(robotId: string, forceRefresh = false): Promise<SensorReading[]> {
+  return fetchSensorReadings(robotId, forceRefresh);
 }
