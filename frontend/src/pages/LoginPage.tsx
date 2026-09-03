@@ -100,7 +100,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              marginBottom: '20px',
+              marginBottom: '32px',
               background: 'none',
               border: 'none',
               padding: 0,
@@ -127,7 +127,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <div>
               <div
                 style={{
-                  fontSize: '20px',
+                  fontSize: '22px',
                   fontWeight: 700,
                   color: 'var(--text-primary)',
                   letterSpacing: '-0.02em',

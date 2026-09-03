@@ -14,8 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
-  Sun,
-  Moon,
   Flashlight,
 } from 'lucide-react';
 import type { HealthStatus } from '../../types/api';
@@ -314,13 +312,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
           title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {theme === 'dark' ? (
-              <Moon size={15} style={{ color: '#38bdf8' }} />
-            ) : (
-              <Sun size={15} style={{ color: '#f59e0b' }} />
-            )}
-            <span>{theme === 'dark' ? '☾ Dark' : '☀ Light'}</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
           </div>
           <div
             style={{
