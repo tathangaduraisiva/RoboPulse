@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
-  Flashlight,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { HealthStatus } from '../../types/api';
 import { useTheme } from '../../context/ThemeContext';
@@ -299,7 +300,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
             padding: '7px 11px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--bg-surface-secondary)',
@@ -312,19 +312,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
           title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
         >
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
             <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: theme === 'dark' ? '#f59e0b' : 'var(--text-muted)',
-              transition: 'color 0.15s ease',
-            }}
-          >
-            <Flashlight size={15} strokeWidth={2.2} />
+            {theme === 'dark' ? (
+              <Moon size={15} strokeWidth={2} style={{ color: '#38bdf8' }} />
+            ) : (
+              <Sun size={15} strokeWidth={2} style={{ color: '#f59e0b' }} />
+            )}
           </div>
         </button>
       </div>
