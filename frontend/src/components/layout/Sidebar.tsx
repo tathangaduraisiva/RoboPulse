@@ -16,6 +16,7 @@ import {
   LogOut,
   Sun,
   Moon,
+  Flashlight,
 } from 'lucide-react';
 import type { HealthStatus } from '../../types/api';
 import { useTheme } from '../../context/ThemeContext';
@@ -300,6 +301,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             width: '100%',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             padding: '7px 11px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--bg-surface-secondary)',
@@ -319,6 +321,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <Sun size={15} strokeWidth={2} style={{ color: '#f59e0b' }} />
             )}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme === 'dark' ? '#f59e0b' : 'var(--text-muted)',
+              transition: 'color 0.15s ease',
+            }}
+          >
+            <Flashlight size={15} strokeWidth={2.2} />
           </div>
         </button>
       </div>
