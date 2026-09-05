@@ -18,5 +18,11 @@ export interface PredictionInsight {
   maintenance_score: number;
   primary_reason: string;
   recommendation: string;
+  what_if_24h?: string;
+  confidence?: string;
+  latest_temperature_c?: number;
+  latest_vibration_mm_s?: number;
+  latest_motor_current_a?: number;
+  latest_pressure_bar?: number;
   calculated_at: string;
 }

@@ -34,10 +34,18 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
 
   // Telemetry helper
   const getRobotTelemetry = (pred: PredictionInsight) => {
-    const temp = pred.temperature_score ? +(50 + (100 - pred.temperature_score) * 0.4).toFixed(1) : 68.5;
-    const vib = pred.vibration_score ? +(1.2 + (100 - pred.vibration_score) * 0.035).toFixed(2) : 2.1;
-    const current = pred.runtime_score ? +(9.0 + (100 - pred.runtime_score) * 0.08).toFixed(1) : 11.4;
-    const pressure = +(5.8 + (pred.health_score % 10) * 0.1).toFixed(1);
+    const temp = pred.latest_temperature_c !== undefined
+      ? +pred.latest_temperature_c.toFixed(1)
+      : pred.temperature_score ? +(50 + (100 - pred.temperature_score) * 0.4).toFixed(1) : 68.5;
+    const vib = pred.latest_vibration_mm_s !== undefined
+      ? +pred.latest_vibration_mm_s.toFixed(2)
+      : pred.vibration_score ? +(1.2 + (100 - pred.vibration_score) * 0.035).toFixed(2) : 2.1;
+    const current = pred.latest_motor_current_a !== undefined
+      ? +pred.latest_motor_current_a.toFixed(1)
+      : pred.runtime_score ? +(9.0 + (100 - pred.runtime_score) * 0.08).toFixed(1) : 11.4;
+    const pressure = pred.latest_pressure_bar !== undefined
+      ? +pred.latest_pressure_bar.toFixed(1)
+      : +(5.8 + (pred.health_score % 10) * 0.1).toFixed(1);
     return {
       temperature: temp,
       vibration: vib,
@@ -284,19 +292,20 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
             <thead>
               <tr>
                 <th style={{ minWidth: '150px' }}>Robot</th>
-                <th style={{ minWidth: '120px' }}>Line</th>
+                <th style={{ minWidth: '110px' }}>Line</th>
                 <th style={{ minWidth: '160px' }}>Telemetry</th>
                 <th style={{ minWidth: '85px' }}>Health</th>
                 <th style={{ minWidth: '70px' }}>Risk %</th>
                 <th style={{ minWidth: '105px' }}>Tier</th>
-                <th style={{ minWidth: '260px' }}>Diagnosis & Prescriptive Action</th>
-                <th style={{ textAlign: 'right', minWidth: '190px' }}>Actions</th>
+                <th style={{ minWidth: '240px' }}>Diagnosis & Prescriptive Action</th>
+                <th style={{ minWidth: '220px' }}>What If Untreated (24h)</th>
+                <th style={{ textAlign: 'right', minWidth: '180px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPredictions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     No risk assessment models match your search criteria.
                   </td>
                 </tr>
@@ -444,7 +453,7 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
                       <td>{getRiskBadge(pred.risk_level)}</td>
 
                       {/* 7. Diagnosis & Prescriptive Action */}
-                      <td style={{ maxWidth: '300px' }}>
+                      <td style={{ maxWidth: '240px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '12px' }}>
                           {pred.primary_reason}
                         </div>
@@ -453,7 +462,16 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
                         </div>
                       </td>
 
-                      {/* 8. Actions */}
+                      {/* 8. What If Untreated (24h) */}
+                      <td style={{ maxWidth: '220px' }}>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                          {pred.what_if_24h || (pred.risk_level === 'critical' || pred.risk_level === 'high'
+                            ? 'Potential accelerated degradation if telemetry anomalies persist over upcoming cycles.'
+                            : 'Nominal baseline stability expected over the next 24 operating hours.')}
+                        </div>
+                      </td>
+
+                      {/* 9. Actions */}
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
                           <button
@@ -605,6 +623,23 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--accent-primary)', marginTop: '6px' }}>
                   <strong>Recommended Prescriptive Action:</strong> {inspectingPred.recommendation}
+                </div>
+              </div>
+
+              {/* What-If Trajectory Projection */}
+              <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    What-If Untreated (24h) Trajectory
+                  </div>
+                  {inspectingPred.confidence && (
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      Confidence: {inspectingPred.confidence}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-primary)', marginTop: '4px', lineHeight: 1.4 }}>
+                  {inspectingPred.what_if_24h || 'Nominal baseline stability expected over the next 24 operating hours.'}
                 </div>
               </div>
             </div>

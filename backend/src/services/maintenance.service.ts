@@ -1,4 +1,5 @@
 import { pool } from "../db/postgres.js";
+import { invalidateRobotPredictionCache, evaluateRobotTelemetry } from "./predictionEngine.js";
 
 export interface MaintenanceRecord {
     id: string;
@@ -88,7 +89,17 @@ export async function createMaintenance(dto: CreateMaintenanceDTO): Promise<Main
         dto.cost || 0,
         dto.next_due_at || null,
     ]);
-    return result.rows[0];
+    const record = result.rows[0];
+
+    // Trigger maintenance feedback loop: Invalidate cache and recalculate prediction
+    if (record?.robot_id) {
+        await invalidateRobotPredictionCache(record.robot_id);
+        evaluateRobotTelemetry(record.robot_id).catch((err) => {
+            console.warn(`[Maintenance] Background prediction recalculation error:`, err);
+        });
+    }
+
+    return record;
 }
 
 export async function markMaintenanceComplete(id: string): Promise<MaintenanceRecord | null> {
@@ -100,5 +111,15 @@ export async function markMaintenanceComplete(id: string): Promise<MaintenanceRe
     `;
     const result = await pool.query(query, [id]);
     if (result.rows.length === 0) return null;
-    return result.rows[0];
+    const record = result.rows[0];
+
+    // Trigger maintenance feedback loop: Invalidate cache and re-evaluate robot
+    if (record?.robot_id) {
+        await invalidateRobotPredictionCache(record.robot_id);
+        evaluateRobotTelemetry(record.robot_id).catch((err) => {
+            console.warn(`[Maintenance] Background prediction recalculation error:`, err);
+        });
+    }
+
+    return record;
 }
