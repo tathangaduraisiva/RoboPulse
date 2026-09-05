@@ -1,5 +1,5 @@
+import type { PredictionRecord } from "./predictionEngine.js";
 import {
-    PredictionRecord,
     evaluateAllRobots,
     evaluateRobotTelemetry,
     invalidateRobotPredictionCache,
@@ -38,8 +38,8 @@ export async function getWhatIfByRobotId(robotId: string) {
     };
 }
 
+export type { PredictionRecord };
 export {
-    PredictionRecord,
     evaluateAllRobots,
     evaluateRobotTelemetry,
     invalidateRobotPredictionCache,
