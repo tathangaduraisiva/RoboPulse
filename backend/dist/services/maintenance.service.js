@@ -1,5 +1,6 @@
 import { pool } from "../db/postgres.js";
-import { invalidateRobotPredictionCache, evaluateRobotTelemetry } from "./predictionEngine.js";
+import { invalidateRobotPredictionCache, evaluateRobotTelemetry, recordHandledCondition, getCurrentConditionFingerprint, } from "./predictionEngine.js";
+import { syncRobotStatus } from "./robot.service.js";
 export async function getAllMaintenance() {
     const query = `
         SELECT 
@@ -43,9 +44,10 @@ export async function createMaintenance(dto) {
             technician,
             cost,
             performed_at,
-            next_due_at
+            next_due_at,
+            condition_fingerprint
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, NOW(), $7
+            $1, $2, $3, $4, $5, $6, NOW(), $7, $8
         )
         RETURNING *;
     `;
@@ -57,10 +59,14 @@ export async function createMaintenance(dto) {
         dto.technician || "Fleet Tech Team",
         dto.cost || 0,
         dto.next_due_at || null,
+        dto.condition_fingerprint || null,
     ]);
     const record = result.rows[0];
-    // Trigger maintenance feedback loop: Invalidate cache and recalculate prediction
+    // Trigger maintenance feedback loop: Invalidate cache, sync robot status, and recalculate prediction
     if (record?.robot_id) {
+        await syncRobotStatus(record.robot_id).catch((err) => {
+            console.warn(`[Maintenance] Robot status sync failed for robot ${record.robot_id}:`, err);
+        });
         await invalidateRobotPredictionCache(record.robot_id);
         evaluateRobotTelemetry(record.robot_id).catch((err) => {
             console.warn(`[Maintenance] Background prediction recalculation error:`, err);
@@ -69,22 +75,71 @@ export async function createMaintenance(dto) {
     return record;
 }
 export async function markMaintenanceComplete(id) {
-    const query = `
+    // Step 1: Fetch the maintenance record to get robot_id before updating
+    const fetchResult = await pool.query(`SELECT id, robot_id, condition_fingerprint FROM maintenance_records WHERE id = $1;`, [id]);
+    if (fetchResult.rows.length === 0)
+        return null;
+    const existingRecord = fetchResult.rows[0];
+    const robotId = existingRecord.robot_id;
+    // Step 2: Capture the current condition fingerprint from live telemetry
+    const currentCondition = await getCurrentConditionFingerprint(robotId);
+    // Step 3: Mark the maintenance record as complete and stamp the condition_handled_at timestamp
+    const updateQuery = `
         UPDATE maintenance_records
-        SET performed_at = NOW(), next_due_at = NULL
+        SET 
+            performed_at = NOW(),
+            next_due_at = NULL,
+            condition_handled_at = NOW(),
+            condition_fingerprint = COALESCE(condition_fingerprint, $2)
         WHERE id = $1
         RETURNING *;
     `;
-    const result = await pool.query(query, [id]);
+    const result = await pool.query(updateQuery, [
+        id,
+        currentCondition?.fingerprint ?? null,
+    ]);
     if (result.rows.length === 0)
         return null;
     const record = result.rows[0];
-    // Trigger maintenance feedback loop: Invalidate cache and re-evaluate robot
-    if (record?.robot_id) {
-        await invalidateRobotPredictionCache(record.robot_id);
-        evaluateRobotTelemetry(record.robot_id).catch((err) => {
-            console.warn(`[Maintenance] Background prediction recalculation error:`, err);
-        });
+    // Step 4: Record the handled condition so the prediction engine can suppress stale re-detections
+    if (currentCondition && currentCondition.category !== "normal") {
+        await recordHandledCondition(robotId, record.id, currentCondition.fingerprint, currentCondition.category, currentCondition.telemetry, currentCondition.latestReadingAt ?? undefined);
     }
+    else if (existingRecord.condition_fingerprint) {
+        await recordHandledCondition(robotId, record.id, existingRecord.condition_fingerprint, "handled_at_schedule", {}, undefined);
+    }
+    // Step 5: Resolve all open alerts for this robot that match the handled condition fingerprint.
+    await resolveHandledAlerts(robotId, currentCondition?.fingerprint ?? null);
+    // Step 6: Synchronize robot status, invalidate Redis cache and recalculate prediction fresh
+    await syncRobotStatus(robotId).catch((err) => {
+        console.warn(`[Maintenance] Robot status sync failed for robot ${robotId}:`, err);
+    });
+    await invalidateRobotPredictionCache(robotId);
+    evaluateRobotTelemetry(robotId).catch((err) => {
+        console.warn(`[Maintenance] Background prediction recalculation error:`, err);
+    });
     return record;
+}
+/**
+ * Resolves all open/in-progress alerts for a robot after maintenance completion.
+ * This prevents unresolved alerts from inflating the error score and recreating
+ * the same critical condition through the alert-based path.
+ *
+ * Only resolves alerts that are in resolvable states (new, acknowledged, in_progress).
+ * Does NOT touch alerts that were already resolved before maintenance.
+ */
+async function resolveHandledAlerts(robotId, _conditionFingerprint) {
+    try {
+        const resolveResult = await pool.query(`UPDATE alerts
+             SET status = 'resolved', updated_at = NOW()
+             WHERE robot_id = $1
+               AND status IN ('new', 'acknowledged', 'in_progress', 'open', 'investigating')
+             RETURNING id, type, severity;`, [robotId]);
+        if (resolveResult.rows.length > 0) {
+            console.log(`[Maintenance] Resolved ${resolveResult.rows.length} alert(s) for robot ${robotId} upon maintenance completion:`, resolveResult.rows.map((r) => `${r.type}/${r.severity}`).join(", "));
+        }
+    }
+    catch (err) {
+        console.warn(`[Maintenance] Could not resolve alerts for robot ${robotId}:`, err);
+    }
 }

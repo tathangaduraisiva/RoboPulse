@@ -2,10 +2,12 @@ import React from 'react';
 import { ChevronRight, AlertTriangle, AlertCircle } from 'lucide-react';
 import type { Robot } from '../../types/robot';
 import type { PredictionInsight } from '../../types/prediction';
+import type { Alert } from '../../types/alert';
 
 interface CriticalRobotsPanelProps {
   robots: Robot[];
   predictions: PredictionInsight[];
+  alerts: Alert[];
   onSelectRobot: (robot: Robot) => void;
   onViewAll: () => void;
 }
@@ -13,6 +15,7 @@ interface CriticalRobotsPanelProps {
 export const CriticalRobotsPanel: React.FC<CriticalRobotsPanelProps> = ({
   robots,
   predictions,
+  alerts,
   onSelectRobot,
   onViewAll,
 }) => {
@@ -21,23 +24,41 @@ export const CriticalRobotsPanel: React.FC<CriticalRobotsPanelProps> = ({
     const predMap = new Map<string, PredictionInsight>();
     predictions.forEach((p) => predMap.set(p.robot_id, p));
 
+    // Build the set of robot IDs with at least one active (unresolved) alert.
+    // This prevents resolved-alert robots from receiving inflated fallback scores.
+    const activeAlertRobotIds = new Set<string>();
+    for (const a of alerts) {
+      if (a.status !== 'resolved') {
+        activeAlertRobotIds.add(a.robot_id);
+      }
+    }
+
     return robots
       .map((robot) => {
         const pred = predMap.get(robot.id);
+        const hasActiveAlert = activeAlertRobotIds.has(robot.id);
+
+        // When real prediction data is available, always use it.
+        // Fallback scores are only applied when no prediction exists AND the robot
+        // has an active (unresolved) alert that justifies the elevated score.
+        // If the robot's alerts are all resolved, fall back to a low nominal score (12)
+        // regardless of the physical status column.
         const failureRisk = pred
           ? Math.round(Number(pred.risk_score))
-          : robot.status === 'offline'
-          ? 92
-          : robot.status === 'attention'
-          ? 58
-          : robot.status === 'maintenance'
-          ? 48
-          : 12;
+          : hasActiveAlert
+            ? robot.status === 'offline'
+              ? 92
+              : robot.status === 'attention'
+              ? 58
+              : robot.status === 'maintenance'
+              ? 48
+              : 12
+            : 12; // No active alert → nominal regardless of physical status
 
         const severity: 'Critical' | 'Warning' | 'Healthy' =
-          failureRisk >= 70 || robot.status === 'offline'
+          failureRisk >= 70
             ? 'Critical'
-            : failureRisk >= 40 || robot.status === 'attention' || robot.status === 'maintenance'
+            : failureRisk >= 40
             ? 'Warning'
             : 'Healthy';
 
@@ -50,7 +71,7 @@ export const CriticalRobotsPanel: React.FC<CriticalRobotsPanelProps> = ({
       })
       .sort((a, b) => b.failureRisk - a.failureRisk)
       .slice(0, 3); // Top 3 critical/at-risk units matching reference
-  }, [robots, predictions]);
+  }, [robots, predictions, alerts]);
 
   return (
     <div

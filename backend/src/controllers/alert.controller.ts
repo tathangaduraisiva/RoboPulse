@@ -62,6 +62,17 @@ export async function createAlert(req: Request, res: Response): Promise<void> {
             status,
         });
 
+        if (!created) {
+            // Alert was suppressed by deduplication (handled condition or duplicate active alert)
+            res.status(200).json({
+                success: true,
+                data: null,
+                deduplicated: true,
+                message: "Alert suppressed: an equivalent alert already exists or condition is currently handled",
+            });
+            return;
+        }
+
         res.status(201).json({ success: true, data: created, message: "Alert created successfully" });
     } catch (error) {
         console.error("Failed to create alert:", error);

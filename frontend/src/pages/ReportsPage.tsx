@@ -135,7 +135,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           marginBottom: '22px',
         }}
       >
-        <div className="card" style={{ padding: '14px 18px' }}>
+        <div className="card card-interactive" style={{ padding: '14px 18px' }}>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Fleet Machines
           </div>
@@ -147,7 +147,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
+        <div className="card card-interactive" style={{ padding: '14px 18px' }}>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Cumulative Runtime
           </div>
@@ -159,7 +159,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
+        <div className="card card-interactive" style={{ padding: '14px 18px' }}>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Total Recorded Anomalies
           </div>
@@ -171,7 +171,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
+        <div className="card card-interactive" style={{ padding: '14px 18px' }}>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Cumulative Maintenance
           </div>
@@ -214,72 +214,32 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
         >
           <button
             type="button"
+            className={`report-tab-btn ${reportType === 'fleet_health' ? 'active' : ''}`}
             onClick={() => setReportType('fleet_health')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: reportType === 'fleet_health' ? 600 : 500,
-              backgroundColor: reportType === 'fleet_health' ? 'var(--bg-surface)' : 'transparent',
-              color: reportType === 'fleet_health' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: reportType === 'fleet_health' ? 'var(--shadow-xs)' : 'none',
-              border: reportType === 'fleet_health' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
           >
             Fleet Operations
           </button>
 
           <button
             type="button"
+            className={`report-tab-btn ${reportType === 'alerts_log' ? 'active' : ''}`}
             onClick={() => setReportType('alerts_log')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: reportType === 'alerts_log' ? 600 : 500,
-              backgroundColor: reportType === 'alerts_log' ? 'var(--bg-surface)' : 'transparent',
-              color: reportType === 'alerts_log' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: reportType === 'alerts_log' ? 'var(--shadow-xs)' : 'none',
-              border: reportType === 'alerts_log' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
           >
             Alerts & Incidents
           </button>
 
           <button
             type="button"
+            className={`report-tab-btn ${reportType === 'maintenance_costs' ? 'active' : ''}`}
             onClick={() => setReportType('maintenance_costs')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: reportType === 'maintenance_costs' ? 600 : 500,
-              backgroundColor: reportType === 'maintenance_costs' ? 'var(--bg-surface)' : 'transparent',
-              color: reportType === 'maintenance_costs' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: reportType === 'maintenance_costs' ? 'var(--shadow-xs)' : 'none',
-              border: reportType === 'maintenance_costs' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
           >
             Maintenance & Costs
           </button>
 
           <button
             type="button"
+            className={`report-tab-btn ${reportType === 'predictions_risk' ? 'active' : ''}`}
             onClick={() => setReportType('predictions_risk')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: reportType === 'predictions_risk' ? 600 : 500,
-              backgroundColor: reportType === 'predictions_risk' ? 'var(--bg-surface)' : 'transparent',
-              color: reportType === 'predictions_risk' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: reportType === 'predictions_risk' ? 'var(--shadow-xs)' : 'none',
-              border: reportType === 'predictions_risk' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
           >
             Predictive Risk
           </button>

@@ -9,11 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { SensorReading } from '../../types/sensor';
-import {
-  generateRealisticTelemetrySeries,
-  type TelemetryMetricKey,
-  type TelemetryPoint,
-} from '../../utils/telemetrySmoothing';
+import type { TelemetryMetricKey } from '../../utils/telemetrySmoothing';
 
 interface SensorChartProps {
   title: string;
@@ -32,43 +28,39 @@ export const SensorChart: React.FC<SensorChartProps> = ({
   unit,
   color,
   readings,
-  robotName,
   latestValue,
   height = 180,
 }) => {
+  // Same chartData shape as Overview: last 40 points, oldest→newest,
+  // with formattedTime / fullTimestamp / val fields.
   const chartData = useMemo(() => {
     if (!readings || readings.length === 0) return [];
-    return generateRealisticTelemetrySeries(readings, metricKey, robotName, 40);
-  }, [readings, metricKey, robotName]);
+    const sorted = [...readings].sort(
+      (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+    );
+    const points = sorted.length > 40 ? sorted.slice(-40) : sorted;
+    return points.map((r) => {
+      const d = new Date(r.recorded_at);
+      const isValid = !Number.isNaN(d.getTime());
+      return {
+        ...r,
+        formattedTime: isValid
+          ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+          : 'Live',
+        fullTimestamp: isValid
+          ? `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`
+          : 'Recent',
+        val: Number(r[metricKey] ?? 0),
+      };
+    });
+  }, [readings, metricKey]);
 
   const latestVal =
     latestValue !== undefined
       ? latestValue
       : chartData.length > 0
-      ? chartData[chartData.length - 1].value
+      ? chartData[chartData.length - 1].val
       : null;
-
-  // Sparse x-axis ticks
-  const xAxisTicks = useMemo(() => {
-    if (chartData.length < 2) return [];
-    const n = chartData.length;
-    const step = Math.ceil(n / 5);
-    const indices: number[] = [];
-    for (let i = 0; i < n; i += step) {
-      indices.push(i);
-    }
-    if (indices[indices.length - 1] !== n - 1) indices.push(n - 1);
-    return indices;
-  }, [chartData]);
-
-  const yDomain = useMemo(() => {
-    if (!chartData.length) return ['auto', 'auto'] as ['auto', 'auto'];
-    const values = chartData.map((d) => d.value);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const pad = (max - min) * 0.08 || 1;
-    return [min - pad, max + pad] as [number, number];
-  }, [chartData]);
 
   return (
     <div
@@ -138,68 +130,91 @@ export const SensorChart: React.FC<SensorChartProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
+              margin={{ top: 8, right: 16, left: 4, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="4 4" stroke="var(--border-subtle)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis
-                dataKey="index"
-                type="number"
-                scale="linear"
-                domain={[0, chartData.length - 1]}
-                ticks={xAxisTicks}
-                tickFormatter={(idx: number) => {
-                  const rounded = Math.round(idx);
-                  const point = chartData[Math.min(rounded, chartData.length - 1)];
-                  return point ? point.formattedTime : '';
-                }}
-                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                dataKey="recorded_at"
+                stroke="var(--text-muted)"
+                fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--border-subtle)' }}
+                padding={{ left: 8, right: 8 }}
+                minTickGap={45}
+                tickFormatter={(val: string) => {
+                  const d = new Date(val);
+                  if (Number.isNaN(d.getTime())) return '';
+                  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                }}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                stroke="var(--text-muted)"
+                fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--border-subtle)' }}
-                width={38}
-                domain={yDomain}
-                tickFormatter={(v: number) => v.toFixed(1)}
+                unit={` ${unit}`}
+                domain={['auto', 'auto']}
+                width={42}
               />
               <Tooltip
                 isAnimationActive={false}
-                cursor={{
-                  stroke: color,
-                  strokeWidth: 1,
-                  strokeDasharray: '3 3',
-                  strokeOpacity: 0.5,
-                }}
+                wrapperStyle={{ pointerEvents: 'none', outline: 'none', zIndex: 50 }}
                 content={({ active, payload }) => {
-                  if (!active || !payload || !payload.length) return null;
-                  const d = payload[0].payload as TelemetryPoint;
-                  return (
-                    <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', boxShadow: 'var(--shadow-md)', fontSize: '12px', pointerEvents: 'none' }}>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '10.5px', marginBottom: '3px' }}>{d.fullTime}</div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {title}:{' '}
-                        <span className="font-mono tabular-nums" style={{ color }}>
-                          {Number(d.value).toFixed(2)} {unit}
-                        </span>
+                  if (active && payload && payload.length) {
+                    const item = payload[0];
+                    const v = typeof item.value === 'number'
+                      ? item.value.toFixed(2)
+                      : item.value;
+                    const timestamp =
+                      item.payload?.fullTimestamp ||
+                      item.payload?.formattedTime ||
+                      'Recent';
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '10px 14px',
+                          boxShadow: 'var(--shadow-lg)',
+                          color: 'var(--text-primary)',
+                          fontSize: '12px',
+                          minWidth: '160px',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                          {title}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
+                          <span
+                            className="font-mono tabular-nums"
+                            style={{ fontSize: '20px', fontWeight: 700, color }}
+                          >
+                            {v}
+                          </span>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {unit}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '5px' }}>
+                          {timestamp}
+                        </div>
                       </div>
-                    </div>
-                  );
+                    );
+                  }
+                  return null;
                 }}
+                cursor={{ stroke: 'var(--accent-primary)', strokeWidth: 1.5, strokeDasharray: '3 3' }}
               />
               <Line
                 type="monotone"
-                dataKey="value"
+                dataKey="val"
+                name={title}
                 stroke={color}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{
-                  r: 4.5,
-                  stroke: color,
-                  strokeWidth: 2,
-                  fill: 'var(--bg-surface)',
-                }}
+                strokeWidth={2.5}
+                dot={{ r: 2.5, fill: color, stroke: 'var(--bg-surface)', strokeWidth: 1 }}
+                activeDot={{ r: 6, fill: color, stroke: '#ffffff', strokeWidth: 2 }}
                 isAnimationActive={false}
               />
             </LineChart>

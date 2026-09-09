@@ -3,6 +3,7 @@ import { Search, Filter, ChevronRight, Clock, Hash } from 'lucide-react';
 import type { Robot, RobotStatus } from '../../types/robot';
 import type { ProductionLine } from '../../types/productionLine';
 import { StatusBadge } from '../common/StatusBadge';
+import { RobotAvatar } from '../common/RobotAvatar';
 
 interface RobotTableProps {
   robots: Robot[];
@@ -170,30 +171,56 @@ export const RobotTable: React.FC<RobotTableProps> = ({
                 >
                   {/* Robot Identifier & Serial */}
                   <td>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
                         style={{
-                          fontWeight: 600,
-                          color: 'var(--text-primary)',
-                          fontSize: '13px',
-                        }}
-                      >
-                        {robot.name}
-                      </span>
-                      <span
-                        className="font-mono"
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '12px',
+                          backgroundColor: 'var(--accent-surface)',
+                          border: '1px solid var(--accent-border)',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '3px',
-                          marginTop: '1px',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          overflow: 'hidden',
+                          padding: '3px',
                         }}
                       >
-                        <Hash size={11} />
-                        {robot.serial_number}
-                      </span>
+                        <RobotAvatar
+                          robot={robot}
+                          productionLines={productionLines}
+                          size={38}
+                          showGlow
+                        />
+                      </div>
+
+                      {/* Name & serial stack */}
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            fontSize: '13px',
+                          }}
+                        >
+                          {robot.name}
+                        </span>
+                        <span
+                          className="font-mono"
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            marginTop: '1px',
+                          }}
+                        >
+                          <Hash size={11} />
+                          {robot.serial_number}
+                        </span>
+                      </div>
                     </div>
                   </td>
 

@@ -2,10 +2,12 @@ import React, { useMemo } from 'react';
 import { AlertTriangle, ChevronRight, Hash, CheckCircle2 } from 'lucide-react';
 import type { Robot, RobotStatus } from '../../types/robot';
 import type { ProductionLine } from '../../types/productionLine';
+import type { Alert } from '../../types/alert';
 import { StatusBadge } from '../common/StatusBadge';
 
 interface RecentAttentionPanelProps {
   robots: Robot[];
+  alerts: Alert[];
   productionLines?: ProductionLine[];
   onSelectRobot: (robot: Robot) => void;
   onNavigateRobots: () => void;
@@ -13,6 +15,7 @@ interface RecentAttentionPanelProps {
 
 export const RecentAttentionPanel: React.FC<RecentAttentionPanelProps> = ({
   robots,
+  alerts,
   productionLines = [],
   onSelectRobot,
   onNavigateRobots,
@@ -23,15 +26,29 @@ export const RecentAttentionPanel: React.FC<RecentAttentionPanelProps> = ({
     return map;
   }, [productionLines]);
 
-  // Filter flagged robots that require attention, maintenance, or are offline
+  // Build the set of robot IDs that have at least one active (unresolved) alert.
+  // A robot whose every alert is resolved must NOT appear in this panel even if
+  // its physical status column still reads 'offline' / 'attention' / 'maintenance'.
+  const robotIdsWithActiveAlerts = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of alerts) {
+      if (a.status !== 'resolved') {
+        ids.add(a.robot_id);
+      }
+    }
+    return ids;
+  }, [alerts]);
+
+  // Show only non-operational robots that also have at least one active alert.
   const attentionRobots = useMemo(() => {
     return robots.filter(
       (r) =>
-        r.status?.toLowerCase() === 'attention' ||
-        r.status?.toLowerCase() === 'maintenance' ||
-        r.status?.toLowerCase() === 'offline'
+        (r.status?.toLowerCase() === 'attention' ||
+          r.status?.toLowerCase() === 'maintenance' ||
+          r.status?.toLowerCase() === 'offline') &&
+        robotIdsWithActiveAlerts.has(r.id)
     );
-  }, [robots]);
+  }, [robots, robotIdsWithActiveAlerts]);
 
   const formatRuntime = (hours: number | string) => {
     const num = typeof hours === 'number' ? hours : parseFloat(hours) || 0;

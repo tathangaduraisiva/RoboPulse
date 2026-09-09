@@ -13,7 +13,9 @@ export const RecentAlertsPanel: React.FC<RecentAlertsPanelProps> = ({
   onViewAll,
   onSelectAlert,
 }) => {
-  const displayAlerts = alerts.slice(0, 5);
+  // Only show unresolved (open / investigating) alerts in the Recent Alerts panel.
+  // Resolved alerts are historical records and must not appear as active items.
+  const displayAlerts = alerts.filter((a) => a.status !== 'resolved').slice(0, 5);
 
   const formatAlertTime = (iso: string) => {
     try {

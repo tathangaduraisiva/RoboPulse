@@ -81,7 +81,7 @@ export const SensorSummary: React.FC<SensorSummaryProps> = ({ readings }) => {
       {metrics.map((m) => (
         <div
           key={m.label}
-          className="card"
+          className="card card-interactive"
           style={{
             padding: '14px 16px',
             borderLeft: `3px solid ${m.color}`,

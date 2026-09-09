@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Sparkles,
   AlertTriangle,
@@ -28,9 +29,29 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
   onSelectRobot,
   onNavigateMaintenance,
 }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [inspectingPred, setInspectingPred] = useState<PredictionInsight | null>(null);
+
+  // Sync the ?filter= query param to the selectedRisk state so that clicking
+  // a summary card navigates directly to the correct filtered view.
+  useEffect(() => {
+    const f = searchParams.get('filter');
+    if (f === 'elevated-risk') {
+      setSelectedRisk('elevated');
+    } else if (f === 'moderate-degradation') {
+      setSelectedRisk('moderate');
+    } else if (f === 'stable') {
+      setSelectedRisk('low');
+    } else if (f === 'fleet-health') {
+      setSelectedRisk('all');
+    } else if (!f) {
+      setSelectedRisk('all');
+    }
+  }, [searchParams]);
 
   // Telemetry helper
   const getRobotTelemetry = (pred: PredictionInsight) => {
@@ -67,7 +88,9 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
     return Math.round(sum / predictions.length);
   }, [predictions]);
 
-  // Filtered Predictions
+  // Filtered Predictions.
+  // 'elevated' is a pseudo-level that matches both 'critical' and 'high'
+  // (mirroring what the Elevated Failure Risk KPI card counts).
   const filteredPredictions = useMemo(() => {
     return predictions.filter((p) => {
       const matchesSearch =
@@ -78,7 +101,11 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
         p.recommendation.toLowerCase().includes(search.toLowerCase()) ||
         p.line_name.toLowerCase().includes(search.toLowerCase());
 
-      const matchesRisk = selectedRisk === 'all' || p.risk_level === selectedRisk;
+      const matchesRisk =
+        selectedRisk === 'all' ||
+        (selectedRisk === 'elevated'
+          ? p.risk_level === 'critical' || p.risk_level === 'high'
+          : p.risk_level === selectedRisk);
 
       return matchesSearch && matchesRisk;
     });
@@ -170,7 +197,25 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
           gap: '16px',
         }}
       >
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 1 — Elevated Failure Risk */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/predictions?filter=elevated-risk')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/predictions?filter=elevated-risk')}
+          onMouseEnter={() => setHoveredCard('elevated-risk')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '16px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'elevated-risk' ? { boxShadow: '0 4px 16px rgba(220,38,38,0.10)', borderColor: '#fca5a5' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
               Elevated Failure Risk
@@ -184,7 +229,25 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 2 — Moderate Degradation */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/predictions?filter=moderate-degradation')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/predictions?filter=moderate-degradation')}
+          onMouseEnter={() => setHoveredCard('moderate-degradation')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '16px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'moderate-degradation' ? { boxShadow: '0 4px 16px rgba(217,119,6,0.10)', borderColor: '#fcd34d' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
               Moderate Degradation
@@ -198,7 +261,25 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 3 — Stable Fleet Units */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/predictions?filter=stable')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/predictions?filter=stable')}
+          onMouseEnter={() => setHoveredCard('stable')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '16px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'stable' ? { boxShadow: '0 4px 16px rgba(22,163,74,0.10)', borderColor: '#86efac' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
               Stable Fleet Units
@@ -212,7 +293,25 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 4 — Fleet Health Index */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/predictions?filter=fleet-health')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/predictions?filter=fleet-health')}
+          onMouseEnter={() => setHoveredCard('fleet-health')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '16px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'fleet-health' ? { boxShadow: '0 4px 16px rgba(37,99,235,0.10)', borderColor: '#93c5fd' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
               Fleet Health Index
@@ -256,15 +355,16 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
           <select
             className="select-input"
             value={selectedRisk}
-            onChange={(e) => setSelectedRisk(e.target.value)}
+            onChange={(e) => { setSelectedRisk(e.target.value); navigate('/predictions?filter=' + e.target.value); }}
             aria-label="Filter by Risk Level"
             style={{ padding: '6px 12px', fontSize: '12.5px', borderRadius: 'var(--radius-sm)' }}
           >
             <option value="all">All Risk Tiers</option>
+            <option value="elevated">Elevated Risk (Critical + High)</option>
             <option value="critical">Critical Risk</option>
             <option value="high">High Risk</option>
             <option value="moderate">Moderate Risk</option>
-            <option value="low">Low Risk</option>
+            <option value="low">Low Risk (Stable)</option>
           </select>
         </div>
       </div>
@@ -298,8 +398,8 @@ export const PredictionsPage: React.FC<PredictionsPageProps> = ({
                 <th style={{ minWidth: '70px' }}>Risk %</th>
                 <th style={{ minWidth: '105px' }}>Tier</th>
                 <th style={{ minWidth: '240px' }}>Diagnosis & Prescriptive Action</th>
-                <th style={{ minWidth: '220px' }}>What If Untreated (24h)</th>
-                <th style={{ textAlign: 'right', minWidth: '180px' }}>Actions</th>
+                <th style={{ minWidth: '220px' }}>What If Untreated<br />Within 24 Hours</th>
+                <th style={{ textAlign: 'left', minWidth: '180px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>

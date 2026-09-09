@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   UsersRound,
   Search,
@@ -86,11 +87,14 @@ const STATUS_STYLE: Record<TechnicianStatus, { bg: string; color: string; border
 };
 
 export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [rawRecords, setRawRecords] = useState<TechnicianApiRecord[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [specFilter, setSpecFilter] = useState<string>('all');
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -147,6 +151,18 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
   useEffect(() => {
     loadTechnicians();
   }, [loadTechnicians]);
+
+  // Sync the ?filter= query param to statusFilter so that clicking a summary
+  // card navigates directly to the correct filtered view.
+  useEffect(() => {
+    const f = searchParams.get('filter');
+    if (f === 'available' || f === 'assigned' || f === 'offline') {
+      setStatusFilter(f);
+    } else {
+      // 'all' param or absent param both show all technicians
+      setStatusFilter('all');
+    }
+  }, [searchParams]);
 
   // Open Add Modal
   const handleOpenAddModal = () => {
@@ -408,7 +424,25 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-        <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 1 — Total Technicians */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/technicians?filter=all')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/technicians?filter=all')}
+          onMouseEnter={() => setHoveredCard('all')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'all' ? { boxShadow: '0 4px 16px rgba(37,99,235,0.10)', borderColor: '#93c5fd' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Technicians</div>
             <div className="tabular-nums font-mono" style={{ fontSize: '22px', fontWeight: 700, marginTop: '2px' }}>{technicians.length}</div>
@@ -418,7 +452,25 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 2 — Available */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/technicians?filter=available')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/technicians?filter=available')}
+          onMouseEnter={() => setHoveredCard('available')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'available' ? { boxShadow: '0 4px 16px rgba(22,163,74,0.10)', borderColor: '#86efac' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Available</div>
             <div className="tabular-nums font-mono" style={{ fontSize: '22px', fontWeight: 700, marginTop: '2px', color: '#16a34a' }}>{available}</div>
@@ -428,7 +480,25 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 3 — Assigned */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/technicians?filter=assigned')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/technicians?filter=assigned')}
+          onMouseEnter={() => setHoveredCard('assigned')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'assigned' ? { boxShadow: '0 4px 16px rgba(37,99,235,0.10)', borderColor: '#93c5fd' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Assigned</div>
             <div className="tabular-nums font-mono" style={{ fontSize: '22px', fontWeight: 700, marginTop: '2px', color: '#2563eb' }}>{assigned}</div>
@@ -438,7 +508,25 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
           </div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Card 4 — Offline */}
+        <div
+          className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/technicians?filter=offline')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/technicians?filter=offline')}
+          onMouseEnter={() => setHoveredCard('offline')}
+          onMouseLeave={() => setHoveredCard(null)}
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'offline' ? { boxShadow: '0 4px 16px rgba(100,116,139,0.12)', borderColor: '#cbd5e1' } : {}),
+          }}
+        >
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Offline</div>
             <div className="tabular-nums font-mono" style={{ fontSize: '22px', fontWeight: 700, marginTop: '2px', color: '#64748b' }}>{offline}</div>
@@ -481,7 +569,7 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
           <select
             className="select-input"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); navigate('/technicians?filter=' + e.target.value); }}
             aria-label="Filter by Status"
           >
             <option value="all">All Statuses</option>

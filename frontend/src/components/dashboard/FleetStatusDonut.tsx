@@ -7,6 +7,59 @@ interface FleetStatusDonutProps {
   onNavigateRobots?: () => void;
 }
 
+interface FleetStatusTooltipPayloadEntry {
+  name: string;
+  value: number;
+  payload: {
+    name: string;
+    value: number;
+    color: string;
+  };
+}
+
+interface FleetStatusTooltipProps {
+  active?: boolean;
+  payload?: FleetStatusTooltipPayloadEntry[];
+}
+
+const FleetStatusTooltip: React.FC<FleetStatusTooltipProps> = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div
+        style={{
+          backgroundColor: 'var(--bg-surface, #ffffff)',
+          border: `1px solid ${data.payload.color || 'var(--border-subtle, #cbd5e1)'}`,
+          borderRadius: '8px',
+          padding: '5px 10px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: data.payload.color,
+            display: 'inline-block',
+          }}
+        />
+        <span style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)' }}>{data.name}:</span>
+        <span className="font-mono tabular-nums" style={{ fontWeight: 700, color: data.payload.color }}>
+          {data.value} {Number(data.value) === 1 ? 'machine' : 'machines'}
+        </span>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const FleetStatusDonut: React.FC<FleetStatusDonutProps> = ({
   robots,
 }) => {
@@ -89,15 +142,10 @@ export const FleetStatusDonut: React.FC<FleetStatusDonutProps> = ({
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Tooltip
-                    formatter={(val: unknown) => [`${val} machines`, 'Status Count']}
-                    contentStyle={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '12px',
-                      padding: '4px 8px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                    }}
+                    content={<FleetStatusTooltip />}
+                    allowEscapeViewBox={{ x: true, y: true }}
+                    wrapperStyle={{ zIndex: 40, pointerEvents: 'none' }}
+                    position={{ y: -8 }}
                   />
                   <Pie
                     data={chartData}

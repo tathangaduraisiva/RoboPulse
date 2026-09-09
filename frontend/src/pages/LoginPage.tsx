@@ -51,12 +51,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
   };
 
+  // Input field shared styles
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    height: '50px',
+    padding: '0 16px',
+    border: '1.5px solid #d1d9e6',
+    borderRadius: '12px',
+    fontSize: '14.5px',
+    color: '#1e293b',
+    backgroundColor: '#ffffff',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+    fontFamily: 'inherit',
+  };
+
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#eef2f7',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -65,29 +81,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         overflowY: 'auto',
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.03) 0%, transparent 40%), radial-gradient(circle at 80% 80%, rgba(37, 99, 235, 0.02) 0%, transparent 40%)',
-          pointerEvents: 'none',
-        }}
-      />
-
+      {/* Main auth card */}
       <div
         style={{
           width: '100%',
-          maxWidth: '430px',
+          maxWidth: '480px',
           backgroundColor: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '18px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03)',
+          borderRadius: '20px',
+          boxShadow:
+            '0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 20px 40px -8px rgba(0, 0, 0, 0.08)',
+          padding: '40px 40px 32px',
           position: 'relative',
-          padding: '36px 36px 28px',
         }}
       >
-        {/* Branding Block */}
+        {/* ── Branding block ── */}
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -95,7 +103,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '14px',
-            marginBottom: '36px',
+            marginBottom: '32px',
             background: 'none',
             border: 'none',
             padding: 0,
@@ -105,17 +113,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         >
           <div
             style={{
-              width: '54px',
-              height: '54px',
+              width: '60px',
+              height: '60px',
               backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
+              border: '1.5px solid #e2e8f0',
+              borderRadius: '14px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               overflow: 'hidden',
-              padding: '4px',
-              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
+              padding: '6px',
+              boxShadow: '0 1px 4px 0 rgba(0, 0, 0, 0.07)',
               flexShrink: 0,
             }}
           >
@@ -128,23 +136,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <div>
             <div
               style={{
-                fontSize: '28px',
+                fontSize: '30px',
                 fontWeight: 800,
-                color: '#0f172a',
                 letterSpacing: '-0.03em',
                 lineHeight: 1.1,
               }}
             >
-              RoboPulse
+              <span style={{ color: '#1769D1' }}>Robo</span>
+              <span style={{ color: '#F57C00' }}>Pulse</span>
             </div>
             <div
               style={{
                 fontSize: '11px',
                 color: '#64748b',
                 fontWeight: 700,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                marginTop: '3px',
+                marginTop: '4px',
               }}
             >
               INDUSTRIAL MONITORING
@@ -152,80 +160,81 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </div>
         </button>
 
-        {/* Heading & Subtitle */}
-        <div style={{ textAlign: 'center', marginBottom: '26px' }}>
+        {/* ── Heading ── */}
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <h1
             style={{
-              fontSize: '24px',
+              fontSize: '26px',
               fontWeight: 800,
               color: '#0f172a',
-              margin: '0 0 8px',
-              letterSpacing: '-0.025em',
+              margin: '0 0 10px',
+              letterSpacing: '-0.03em',
             }}
           >
             Sign in to your account
           </h1>
           <p
             style={{
-              fontSize: '13.5px',
+              fontSize: '14px',
               color: '#64748b',
               margin: 0,
-              lineHeight: 1.45,
-              maxWidth: '300px',
-              marginLeft: 'auto',
-              marginRight: 'auto',
+              lineHeight: 1.6,
             }}
           >
-            Enter your credentials to access the monitoring console
+            Enter your credentials to access the
+            <br />
+            monitoring console
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          {error && (
-            <div
-              style={{
-                marginBottom: '18px',
-                padding: '10px 14px',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '8px',
-                color: '#dc2626',
-                fontSize: '13px',
-                fontWeight: 500,
-              }}
-            >
-              {error}
-            </div>
-          )}
+        {/* ── Feedback banners ── */}
+        {error && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '10px',
+              color: '#dc2626',
+              fontSize: '13.5px',
+              fontWeight: 500,
+              lineHeight: 1.4,
+            }}
+          >
+            {error}
+          </div>
+        )}
 
-          {successMessage && (
-            <div
-              style={{
-                marginBottom: '18px',
-                padding: '10px 14px',
-                backgroundColor: '#ecfdf5',
-                border: '1px solid #a7f3d0',
-                borderRadius: '8px',
-                color: '#166534',
-                fontSize: '13px',
-                fontWeight: 500,
-              }}
-            >
-              {successMessage}
-            </div>
-          )}
+        {successMessage && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              backgroundColor: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '10px',
+              color: '#166534',
+              fontSize: '13.5px',
+              fontWeight: 500,
+            }}
+          >
+            {successMessage}
+          </div>
+        )}
 
-          {/* Username Field */}
+        {/* ── Form ── */}
+        <form onSubmit={handleSubmit} noValidate>
+          {/* Username */}
           <div style={{ marginBottom: '18px' }}>
             <label
               htmlFor="login-username"
               style={{
                 display: 'block',
-                fontSize: '13.5px',
-                fontWeight: 600,
+                fontSize: '14px',
+                fontWeight: 700,
                 color: '#0f172a',
-                marginBottom: '6px',
+                marginBottom: '8px',
               }}
             >
               Username
@@ -238,40 +247,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               autoFocus
               autoComplete="username"
               placeholder="Enter your email or username"
-              style={{
-                width: '100%',
-                height: '44px',
-                padding: '0 14px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                fontSize: '14px',
-                color: '#0f172a',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-              }}
+              style={inputStyle}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = '#3b82f6';
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.15)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)';
               }}
               onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#cbd5e1';
+                e.currentTarget.style.borderColor = '#d1d9e6';
                 e.currentTarget.style.boxShadow = 'none';
               }}
             />
           </div>
 
-          {/* Password Field */}
-          <div style={{ marginBottom: '22px' }}>
+          {/* Password */}
+          <div style={{ marginBottom: '24px' }}>
             <label
               htmlFor="login-password"
               style={{
                 display: 'block',
-                fontSize: '13.5px',
-                fontWeight: 600,
+                fontSize: '14px',
+                fontWeight: 700,
                 color: '#0f172a',
-                marginBottom: '6px',
+                marginBottom: '8px',
               }}
             >
               Password
@@ -284,37 +281,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 autoComplete="current-password"
-                style={{
-                  width: '100%',
-                  height: '44px',
-                  padding: '0 42px 0 14px',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  color: '#0f172a',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-                }}
+                style={{ ...inputStyle, paddingRight: '48px' }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#3b82f6';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.15)';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)';
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.borderColor = '#d1d9e6';
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
                 style={{
                   position: 'absolute',
-                  right: '10px',
+                  right: '14px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#64748b',
+                  color: '#94a3b8',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -322,53 +308,64 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '4px',
+                  lineHeight: 0,
                 }}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
           </div>
 
-          {/* Sign In Button */}
+          {/* Sign In button */}
           <button
             type="submit"
             disabled={loading}
             style={{
               width: '100%',
-              height: '46px',
+              height: '52px',
               backgroundColor: loading ? '#93c5fd' : '#2563eb',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '8px',
-              fontSize: '14.5px',
-              fontWeight: 600,
+              borderRadius: '12px',
+              fontSize: '15px',
+              fontWeight: 700,
               cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              transition: 'background-color 0.15s ease',
+              gap: '9px',
+              transition: 'background-color 0.15s ease, transform 0.1s ease',
               boxSizing: 'border-box',
+              letterSpacing: '0.01em',
             }}
             onMouseEnter={(e) => {
-              if (!loading) e.currentTarget.style.backgroundColor = '#1d4ed8';
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = '#1d4ed8';
+              }
             }}
             onMouseLeave={(e) => {
-              if (!loading) e.currentTarget.style.backgroundColor = '#2563eb';
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = '#2563eb';
+              }
+            }}
+            onMouseDown={(e) => {
+              if (!loading) e.currentTarget.style.transform = 'scale(0.99)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <LogIn size={17} />
-            <span>{loading ? 'Signing in...' : 'Sign In'}</span>
+            <LogIn size={18} />
+            <span>{loading ? 'Signing in…' : 'Sign In'}</span>
           </button>
 
-          {/* Sign Up Navigation */}
+          {/* Create account link */}
           <div
             style={{
               textAlign: 'center',
-              marginTop: '18px',
-              marginBottom: '24px',
-              fontSize: '13.5px',
+              marginTop: '22px',
+              fontSize: '14px',
               color: '#334155',
               display: 'flex',
               alignItems: 'center',
@@ -376,7 +373,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               gap: '5px',
             }}
           >
-            <span>Don't have an account?</span>
+            <span style={{ fontWeight: 500 }}>Don't have an account?</span>
             <button
               type="button"
               onClick={() => navigate('/signup')}
@@ -384,11 +381,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 background: 'none',
                 border: 'none',
                 color: '#2563eb',
-                fontWeight: 600,
-                fontSize: '13.5px',
+                fontWeight: 700,
+                fontSize: '14px',
                 cursor: 'pointer',
                 padding: 0,
                 textDecoration: 'none',
+                fontFamily: 'inherit',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.textDecoration = 'underline';
@@ -402,11 +400,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </div>
         </form>
 
-        {/* Footer Divider & Text */}
+        {/* ── Footer ── */}
         <div
           style={{
-            borderTop: '1px solid #e2e8f0',
-            paddingTop: '18px',
+            borderTop: '1px solid #f1f5f9',
+            marginTop: '28px',
+            paddingTop: '20px',
             textAlign: 'center',
           }}
         >
@@ -414,9 +413,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             style={{
               margin: 0,
               fontSize: '12px',
-              color: '#64748b',
+              color: '#94a3b8',
               fontWeight: 500,
-              lineHeight: 1.4,
+              letterSpacing: '0.01em',
             }}
           >
             RoboPulse Industrial Predictive Maintenance Platform
@@ -426,4 +425,3 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     </div>
   );
 };
-

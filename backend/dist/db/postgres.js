@@ -3,11 +3,17 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pg;
 export const pool = new Pool({
-    host: process.env.DATABASE_HOST,
-    port: Number(process.env.DATABASE_PORT),
-    database: process.env.DATABASE_NAME,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
+    host: process.env.DATABASE_HOST || "127.0.0.1",
+    port: Number(process.env.DATABASE_PORT) || 5433,
+    database: process.env.DATABASE_NAME || "robopulse",
+    user: process.env.DATABASE_USER || "robopulse_user",
+    password: process.env.DATABASE_PASSWORD || "robopulse_password",
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+});
+pool.on("error", (err) => {
+    console.error("[PostgreSQL Pool] Unexpected error on idle client:", err.message);
 });
 export async function checkDatabaseConnection() {
     const client = await pool.connect();
@@ -53,16 +59,17 @@ export async function verifyDatabaseSchema() {
 }
 export async function ensureRequiredAlerts(client) {
     const alertsTableCheck = await client.query(`SELECT EXISTS (
-            SELECT FROM information_schema.tables 
+            SELECT FROM information_schema.tables
             WHERE table_name = 'alerts'
         );`);
     if (!alertsTableCheck.rows[0].exists) {
         return;
     }
     // Ensure Alert 1: ROBOT-003 Medium Temperature Unresolved Alert
+    // ON CONFLICT (id) DO NOTHING — safe to call on every startup; never re-creates if already exists.
     await client.query(`
         INSERT INTO alerts (id, robot_id, type, severity, message, status, created_at, updated_at)
-        SELECT 
+        SELECT
             '50000000-0000-0000-0000-000000000001'::uuid,
             r.id,
             'Temperature',
@@ -71,14 +78,14 @@ export async function ensureRequiredAlerts(client) {
             'new',
             NOW() - INTERVAL '2 hours',
             NOW() - INTERVAL '2 hours'
-        FROM robots r 
+        FROM robots r
         WHERE r.name = 'ROBOT-003' OR r.id = '20000000-0000-0000-0000-000000000003'
         ON CONFLICT (id) DO NOTHING;
     `);
     // Ensure Alert 2: ROBOT-006 High Vibration Unresolved Alert
     await client.query(`
         INSERT INTO alerts (id, robot_id, type, severity, message, status, created_at, updated_at)
-        SELECT 
+        SELECT
             '50000000-0000-0000-0000-000000000002'::uuid,
             r.id,
             'Vibration',
@@ -87,24 +94,39 @@ export async function ensureRequiredAlerts(client) {
             'new',
             NOW() - INTERVAL '4 hours',
             NOW() - INTERVAL '4 hours'
-        FROM robots r 
+        FROM robots r
         WHERE r.name = 'ROBOT-006' OR r.id = '20000000-0000-0000-0000-000000000006'
         ON CONFLICT (id) DO NOTHING;
     `);
-    // Ensure Alert 3: ROBOT-002 Low Motor Current Unresolved Alert
+    // Ensure Alert 3: Offline alert for any robot currently in 'offline' status.
+    //
+    // This is GENERIC — it does not hardcode any robot name or ID.
+    // For each offline robot, we derive a stable alert UUID by replacing the first
+    // UUID segment prefix (2000...) with 5000... so it is deterministic and collision-free.
+    // The INSERT uses ON CONFLICT (id) DO NOTHING so repeated startups are idempotent.
+    //
+    // We also skip creation when an offline alert already exists for that robot.
     await client.query(`
         INSERT INTO alerts (id, robot_id, type, severity, message, status, created_at, updated_at)
-        SELECT 
-            '50000000-0000-0000-0000-000000000003'::uuid,
+        SELECT
+            -- Derive a stable UUID from the robot's own UUID: swap leading '2' for '5'
+            -- e.g. 20000000-0000-0000-0000-000000000008 → 50000000-0000-0000-0000-000000000008
+            (REPLACE(r.id::text, '20000000', '50000000'))::uuid,
             r.id,
-            'Motor Current',
-            'low',
-            'Motor current showing sustained variation from normal operating levels',
+            'Offline',
+            'critical',
+            r.name || ' is offline and unresponsive. Immediate inspection required.',
             'new',
-            NOW() - INTERVAL '6 hours',
-            NOW() - INTERVAL '6 hours'
-        FROM robots r 
-        WHERE r.name = 'ROBOT-002' OR r.id = '20000000-0000-0000-0000-000000000002'
+            NOW(),
+            NOW()
+        FROM robots r
+        WHERE r.status = 'offline'
+          AND NOT EXISTS (
+              SELECT 1 FROM alerts a
+              WHERE a.robot_id = r.id
+                AND a.type = 'Offline'
+          )
         ON CONFLICT (id) DO NOTHING;
     `);
+    console.log('[DB] ensureRequiredAlerts: offline robot alert check complete');
 }

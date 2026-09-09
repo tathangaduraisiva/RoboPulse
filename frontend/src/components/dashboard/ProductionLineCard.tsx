@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Bot, ChevronRight } from 'lucide-react';
 import type { ProductionLine } from '../../types/productionLine';
+import { RobotAvatar } from '../common/RobotAvatar';
 
 interface ProductionLineCardProps {
   line: ProductionLine;
@@ -50,19 +51,40 @@ export const ProductionLineCard: React.FC<ProductionLineCardProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '6px',
+            marginBottom: '10px',
+            gap: '10px',
           }}
         >
-          <h3
-            style={{
-              fontSize: '15px',
-              fontWeight: 600,
-              color: 'var(--text-primary)',
-              margin: 0,
-            }}
-          >
-            {line.name}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--accent-surface)',
+                border: '1px solid var(--accent-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '2px',
+                flexShrink: 0,
+              }}
+            >
+              <RobotAvatar productionLine={line} size={32} showGlow />
+            </div>
+            <div>
+              <h3
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  margin: 0,
+                }}
+              >
+                {line.name}
+              </h3>
+            </div>
+          </div>
           <span
             className="font-mono"
             style={{
@@ -73,6 +95,7 @@ export const ProductionLineCard: React.FC<ProductionLineCardProps> = ({
               backgroundColor: 'var(--bg-surface-secondary)',
               border: '1px solid var(--border-subtle)',
               color: 'var(--text-secondary)',
+              flexShrink: 0,
             }}
           >
             {line.code}

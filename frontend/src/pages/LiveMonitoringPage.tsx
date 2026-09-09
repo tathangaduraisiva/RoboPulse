@@ -1,21 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Radio,
-  RefreshCw,
   Cpu,
   Thermometer,
   Zap,
   Activity,
   Gauge,
-  Play,
-  Pause,
   Sliders,
   Sparkles,
 } from 'lucide-react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -24,12 +21,10 @@ import {
 } from 'recharts';
 import type { Robot } from '../types/robot';
 import type { SensorReading } from '../types/sensor';
-import { fetchRobotReadings } from '../api/robots';
+import { fetchSensorReadings } from '../api/sensors';
 import {
-  generateRealisticTelemetrySeries,
   METRIC_METADATA,
   type TelemetryMetricKey,
-  type TelemetryPoint,
 } from '../utils/telemetrySmoothing';
 
 interface LiveMonitoringPageProps {
@@ -44,63 +39,112 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
   const navigate = useNavigate();
   const [selectedRobotId, setSelectedRobotId] = useState<string>(robots[0]?.id || '');
   const [activeMetric, setActiveMetric] = useState<TelemetryMetricKey>('temperature_c');
+  const [hoveredMetric, setHoveredMetric] = useState<TelemetryMetricKey | null>(null);
   const [readings, setReadings] = useState<SensorReading[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [pollingRate, setPollingRate] = useState<number>(3000); // 3000ms default
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [liveCounter, setLiveCounter] = useState<number>(0);
+  const [sensorError, setSensorError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const SENSOR_POLL_MS = 2000;
 
   const currentRobot = useMemo(
     () => robots.find((r) => r.id === selectedRobotId) || robots[0],
     [robots, selectedRobotId]
   );
 
-  // Load telemetry
+  // Live polling — same pattern as the Overview graph.
+  // Clears and restarts whenever the selected robot changes.
   useEffect(() => {
-    let isSubscribed = true;
-    if (!currentRobot) return;
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
 
-    fetchRobotReadings(currentRobot.id)
-      .then((data) => {
-        if (isSubscribed) {
-          setReadings(data);
+    if (!currentRobot?.id) {
+      setReadings([]);
+      return;
+    }
+
+    const robotId = currentRobot.id;
+    let active = true;
+    setLoading(true);
+    setSensorError(null);
+
+    const readingsRef = { current: [] as SensorReading[] };
+
+    const fetchAndMerge = (forceRefresh: boolean) => {
+      fetchSensorReadings(robotId, forceRefresh)
+        .then((data) => {
+          if (!active) return;
+          const incoming = Array.isArray(data) ? data : [];
+          const prev = readingsRef.current;
+          if (prev.length === 0) {
+            readingsRef.current = incoming;
+            setReadings(incoming);
+            setLoading(false);
+            setSensorError(null);
+            return;
+          }
+          const existingIds = new Set(prev.map((r) => r.id));
+          const newOnes = incoming.filter((r) => !existingIds.has(r.id));
+          if (newOnes.length === 0) return;
+          const merged = [...prev, ...newOnes].sort(
+            (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+          );
+          readingsRef.current = merged;
+          setReadings(merged);
           setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isSubscribed) setLoading(false);
-      });
+          setSensorError(null);
+        })
+        .catch((err: unknown) => {
+          if (!active) return;
+          setReadings([]);
+          setSensorError(err instanceof Error ? err.message : 'Sensor telemetry unavailable');
+          setLoading(false);
+        });
+    };
+
+    fetchAndMerge(false);
+    intervalRef.current = setInterval(() => fetchAndMerge(true), SENSOR_POLL_MS);
 
     return () => {
-      isSubscribed = false;
+      active = false;
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [currentRobot]);
-
-  // Live polling simulator for continuous industrial stream
-  useEffect(() => {
-    if (isPaused || pollingRate <= 0) return;
-    const interval = setInterval(() => {
-      setLiveCounter((c) => c + 1);
-    }, pollingRate);
-    return () => clearInterval(interval);
-  }, [isPaused, pollingRate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRobot?.id]);
 
   const metricConfig = METRIC_METADATA[activeMetric];
 
-  // Generated smooth waveforms
+  // Same chartData shape as Overview: last 40 points, val field, fullTimestamp for tooltip.
   const chartData = useMemo(() => {
-    if (!currentRobot || readings.length === 0) return [];
-    return generateRealisticTelemetrySeries(
-      readings,
-      activeMetric,
-      `${currentRobot.name}-${liveCounter}`,
-      40
+    if (readings.length === 0) return [];
+    const sorted = [...readings].sort(
+      (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
     );
-  }, [readings, currentRobot, activeMetric, liveCounter]);
+    const points = sorted.length > 40 ? sorted.slice(-40) : sorted;
+    return points.map((reading) => {
+      const dateObj = new Date(reading.recorded_at);
+      const isValidDate = !Number.isNaN(dateObj.getTime());
+      const formattedTime = isValidDate
+        ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+        : 'Live';
+      const fullTimestamp = isValidDate
+        ? `${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`
+        : 'Recent';
+      return {
+        ...reading,
+        formattedTime,
+        fullTimestamp,
+        val: Number(reading[activeMetric] ?? 0),
+      };
+    });
+  }, [readings, activeMetric]);
 
-  // Calculate live values and thresholds
-  const latestPoint = chartData[chartData.length - 1];
-  const latestValue = latestPoint ? latestPoint.value : 0;
+  const latestReading = readings.length > 0 ? readings[readings.length - 1] : null;
 
   const getMetricStatus = (key: TelemetryMetricKey, val: number) => {
     switch (key) {
@@ -123,8 +167,6 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
         return { status: 'Normal', color: '#16a34a', bg: '#f0fdf4' };
     }
   };
-
-  const currentStatus = getMetricStatus(activeMetric, latestValue);
 
   return (
     <div>
@@ -157,57 +199,6 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
             High-frequency sensor acquisition, real-time threshold validation, and wave telemetry
           </p>
-        </div>
-
-        {/* Polling Rate & Pause/Play Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: isPaused ? '#fef2f2' : '#f0fdf4',
-              border: `1px solid ${isPaused ? '#fecaca' : '#bbf7d0'}`,
-              color: isPaused ? '#dc2626' : '#16a34a',
-              fontSize: '12px',
-              fontWeight: 600,
-            }}
-          >
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: isPaused ? '#dc2626' : '#16a34a',
-                display: 'inline-block',
-              }}
-            />
-            <span>{isPaused ? 'STREAM PAUSED' : 'LIVE STREAMING'}</span>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-default"
-            onClick={() => setIsPaused(!isPaused)}
-            style={{ height: '36px', padding: '0 12px' }}
-          >
-            {isPaused ? <Play size={14} /> : <Pause size={14} />}
-            <span>{isPaused ? 'Resume' : 'Pause'}</span>
-          </button>
-
-          <select
-            className="select-input"
-            value={pollingRate}
-            onChange={(e) => setPollingRate(Number(e.target.value))}
-            style={{ height: '36px' }}
-            aria-label="Polling Rate"
-          >
-            <option value={1000}>1 sec (High Res)</option>
-            <option value={3000}>3 sec (Standard)</option>
-            <option value={5000}>5 sec (Low Bandwidth)</option>
-          </select>
         </div>
       </div>
 
@@ -271,7 +262,7 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
               style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <Sparkles size={14} />
-              <span>Predictive Maintenance & Risk Intelligence</span>
+              <span>Predictive Maintenance &amp; Risk Intelligence</span>
             </button>
 
             <button
@@ -298,12 +289,25 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
       >
         {/* Card 1: Temperature */}
         <div
-          className="card clickable"
+          className="card clickable card-interactive"
           onClick={() => setActiveMetric('temperature_c')}
+          onMouseEnter={() => setHoveredMetric('temperature_c')}
+          onMouseLeave={() => setHoveredMetric(null)}
           style={{
             padding: '16px 18px',
-            border: activeMetric === 'temperature_c' ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-            backgroundColor: activeMetric === 'temperature_c' ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+            border: activeMetric === 'temperature_c'
+              ? '2px solid var(--accent-primary)'
+              : hoveredMetric === 'temperature_c'
+              ? '1px solid var(--border-default)'
+              : '1px solid var(--border-subtle)',
+            backgroundColor: activeMetric === 'temperature_c'
+              ? 'var(--bg-surface-secondary)'
+              : hoveredMetric === 'temperature_c'
+              ? 'var(--bg-surface-hover)'
+              : 'var(--bg-surface)',
+            boxShadow: hoveredMetric === 'temperature_c' && activeMetric !== 'temperature_c'
+              ? 'var(--shadow-md)'
+              : undefined,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -311,41 +315,38 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
               <Thermometer size={18} style={{ color: '#ea580c' }} />
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Temperature</span>
             </div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '2px 6px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: getMetricStatus('temperature_c', latestValue).bg,
-                color: getMetricStatus('temperature_c', latestValue).color,
-              }}
-            >
-              {getMetricStatus('temperature_c', latestValue).status}
+            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: 'var(--radius-xs)', backgroundColor: getMetricStatus('temperature_c', latestReading ? Number(latestReading.temperature_c) : 0).bg, color: getMetricStatus('temperature_c', latestReading ? Number(latestReading.temperature_c) : 0).color }}>
+              {getMetricStatus('temperature_c', latestReading ? Number(latestReading.temperature_c) : 0).status}
             </span>
           </div>
-          <div
-            className="tabular-nums font-mono"
-            style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}
-          >
-            {activeMetric === 'temperature_c'
-              ? latestValue.toFixed(1)
-              : (58.4 + (liveCounter % 3) * 0.4).toFixed(1)}{' '}
+          <div className="tabular-nums font-mono" style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}>
+            {latestReading ? Number(latestReading.temperature_c).toFixed(1) : '—'}{' '}
             <span style={{ fontSize: '13px', color: '#ea580c' }}>°C</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Safe Range: &lt; 75.0 °C
-          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Safe Range: &lt; 75.0 °C</div>
         </div>
 
         {/* Card 2: Vibration */}
         <div
-          className="card clickable"
+          className="card clickable card-interactive"
           onClick={() => setActiveMetric('vibration_mm_s')}
+          onMouseEnter={() => setHoveredMetric('vibration_mm_s')}
+          onMouseLeave={() => setHoveredMetric(null)}
           style={{
             padding: '16px 18px',
-            border: activeMetric === 'vibration_mm_s' ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-            backgroundColor: activeMetric === 'vibration_mm_s' ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+            border: activeMetric === 'vibration_mm_s'
+              ? '2px solid var(--accent-primary)'
+              : hoveredMetric === 'vibration_mm_s'
+              ? '1px solid var(--border-default)'
+              : '1px solid var(--border-subtle)',
+            backgroundColor: activeMetric === 'vibration_mm_s'
+              ? 'var(--bg-surface-secondary)'
+              : hoveredMetric === 'vibration_mm_s'
+              ? 'var(--bg-surface-hover)'
+              : 'var(--bg-surface)',
+            boxShadow: hoveredMetric === 'vibration_mm_s' && activeMetric !== 'vibration_mm_s'
+              ? 'var(--shadow-md)'
+              : undefined,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -353,41 +354,38 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
               <Activity size={18} style={{ color: '#d97706' }} />
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Vibration RMS</span>
             </div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '2px 6px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: getMetricStatus('vibration_mm_s', latestValue).bg,
-                color: getMetricStatus('vibration_mm_s', latestValue).color,
-              }}
-            >
-              {getMetricStatus('vibration_mm_s', latestValue).status}
+            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: 'var(--radius-xs)', backgroundColor: getMetricStatus('vibration_mm_s', latestReading ? Number(latestReading.vibration_mm_s) : 0).bg, color: getMetricStatus('vibration_mm_s', latestReading ? Number(latestReading.vibration_mm_s) : 0).color }}>
+              {getMetricStatus('vibration_mm_s', latestReading ? Number(latestReading.vibration_mm_s) : 0).status}
             </span>
           </div>
-          <div
-            className="tabular-nums font-mono"
-            style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}
-          >
-            {activeMetric === 'vibration_mm_s'
-              ? latestValue.toFixed(2)
-              : (1.82 + (liveCounter % 4) * 0.05).toFixed(2)}{' '}
+          <div className="tabular-nums font-mono" style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}>
+            {latestReading ? Number(latestReading.vibration_mm_s).toFixed(2) : '—'}{' '}
             <span style={{ fontSize: '13px', color: '#d97706' }}>mm/s</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Safe Range: &lt; 3.50 mm/s
-          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Safe Range: &lt; 3.50 mm/s</div>
         </div>
 
         {/* Card 3: Motor Current */}
         <div
-          className="card clickable"
+          className="card clickable card-interactive"
           onClick={() => setActiveMetric('motor_current_a')}
+          onMouseEnter={() => setHoveredMetric('motor_current_a')}
+          onMouseLeave={() => setHoveredMetric(null)}
           style={{
             padding: '16px 18px',
-            border: activeMetric === 'motor_current_a' ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-            backgroundColor: activeMetric === 'motor_current_a' ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+            border: activeMetric === 'motor_current_a'
+              ? '2px solid var(--accent-primary)'
+              : hoveredMetric === 'motor_current_a'
+              ? '1px solid var(--border-default)'
+              : '1px solid var(--border-subtle)',
+            backgroundColor: activeMetric === 'motor_current_a'
+              ? 'var(--bg-surface-secondary)'
+              : hoveredMetric === 'motor_current_a'
+              ? 'var(--bg-surface-hover)'
+              : 'var(--bg-surface)',
+            boxShadow: hoveredMetric === 'motor_current_a' && activeMetric !== 'motor_current_a'
+              ? 'var(--shadow-md)'
+              : undefined,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -395,41 +393,38 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
               <Zap size={18} style={{ color: 'var(--accent-primary)' }} />
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Motor Current</span>
             </div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '2px 6px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: getMetricStatus('motor_current_a', latestValue).bg,
-                color: getMetricStatus('motor_current_a', latestValue).color,
-              }}
-            >
-              {getMetricStatus('motor_current_a', latestValue).status}
+            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: 'var(--radius-xs)', backgroundColor: getMetricStatus('motor_current_a', latestReading ? Number(latestReading.motor_current_a) : 0).bg, color: getMetricStatus('motor_current_a', latestReading ? Number(latestReading.motor_current_a) : 0).color }}>
+              {getMetricStatus('motor_current_a', latestReading ? Number(latestReading.motor_current_a) : 0).status}
             </span>
           </div>
-          <div
-            className="tabular-nums font-mono"
-            style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}
-          >
-            {activeMetric === 'motor_current_a'
-              ? latestValue.toFixed(1)
-              : (14.2 + (liveCounter % 3) * 0.3).toFixed(1)}{' '}
+          <div className="tabular-nums font-mono" style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}>
+            {latestReading ? Number(latestReading.motor_current_a).toFixed(1) : '—'}{' '}
             <span style={{ fontSize: '13px', color: 'var(--accent-primary)' }}>A</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Safe Range: &lt; 18.0 A
-          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Safe Range: &lt; 18.0 A</div>
         </div>
 
         {/* Card 4: Pressure */}
         <div
-          className="card clickable"
+          className="card clickable card-interactive"
           onClick={() => setActiveMetric('pressure_bar')}
+          onMouseEnter={() => setHoveredMetric('pressure_bar')}
+          onMouseLeave={() => setHoveredMetric(null)}
           style={{
             padding: '16px 18px',
-            border: activeMetric === 'pressure_bar' ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-            backgroundColor: activeMetric === 'pressure_bar' ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+            border: activeMetric === 'pressure_bar'
+              ? '2px solid var(--accent-primary)'
+              : hoveredMetric === 'pressure_bar'
+              ? '1px solid var(--border-default)'
+              : '1px solid var(--border-subtle)',
+            backgroundColor: activeMetric === 'pressure_bar'
+              ? 'var(--bg-surface-secondary)'
+              : hoveredMetric === 'pressure_bar'
+              ? 'var(--bg-surface-hover)'
+              : 'var(--bg-surface)',
+            boxShadow: hoveredMetric === 'pressure_bar' && activeMetric !== 'pressure_bar'
+              ? 'var(--shadow-md)'
+              : undefined,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -437,43 +432,20 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
               <Gauge size={18} style={{ color: '#0891b2' }} />
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Pneumatic Pressure</span>
             </div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '2px 6px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: getMetricStatus('pressure_bar', latestValue).bg,
-                color: getMetricStatus('pressure_bar', latestValue).color,
-              }}
-            >
-              {getMetricStatus('pressure_bar', latestValue).status}
+            <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 6px', borderRadius: 'var(--radius-xs)', backgroundColor: getMetricStatus('pressure_bar', latestReading ? Number(latestReading.pressure_bar) : 0).bg, color: getMetricStatus('pressure_bar', latestReading ? Number(latestReading.pressure_bar) : 0).color }}>
+              {getMetricStatus('pressure_bar', latestReading ? Number(latestReading.pressure_bar) : 0).status}
             </span>
           </div>
-          <div
-            className="tabular-nums font-mono"
-            style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}
-          >
-            {activeMetric === 'pressure_bar'
-              ? latestValue.toFixed(1)
-              : (5.4 + (liveCounter % 2) * 0.1).toFixed(1)}{' '}
+          <div className="tabular-nums font-mono" style={{ fontSize: '24px', fontWeight: 700, marginTop: '10px', color: 'var(--text-primary)' }}>
+            {latestReading ? Number(latestReading.pressure_bar).toFixed(1) : '—'}{' '}
             <span style={{ fontSize: '13px', color: '#0891b2' }}>bar</span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Safe Range: 4.5 – 6.5 bar
-          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Safe Range: 4.5 – 6.5 bar</div>
         </div>
       </div>
 
-      {/* Main Continuous Wave Telemetry Chart */}
-      <div
-        className="card"
-        style={{
-          padding: '22px',
-          backgroundColor: 'var(--bg-surface)',
-          marginBottom: '20px',
-        }}
-      >
+      {/* Main Telemetry Chart — same design as Overview */}
+      <div className="card" style={{ padding: '20px 22px', marginBottom: '20px' }}>
         <div
           style={{
             display: 'flex',
@@ -485,135 +457,161 @@ export const LiveMonitoringPage: React.FC<LiveMonitoringPageProps> = ({
           }}
         >
           <div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>
-              Live Telemetry Waveform: {metricConfig.label}
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Sensor Telemetry Trend
             </h3>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Continuous multi-harmonic sensor stream with real-time gradient fill
-            </div>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+              {currentRobot ? `${currentRobot.name} (${currentRobot.serial_number})` : 'Select a robot to view telemetry stream'}
+            </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: currentStatus.bg,
-                color: currentStatus.color,
-              }}
-            >
-              Status: {currentStatus.status}
-            </span>
+          {/* Metric selector tabs — same style as Overview */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '4px',
+              backgroundColor: 'var(--bg-surface-secondary)',
+              padding: '3px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            {(['temperature_c', 'vibration_mm_s', 'motor_current_a', 'pressure_bar'] as TelemetryMetricKey[]).map((key) => {
+              const isActive = activeMetric === key;
+              const metricClass =
+                key === 'temperature_c'
+                  ? 'telemetry-tab-btn--temp'
+                  : key === 'vibration_mm_s'
+                  ? 'telemetry-tab-btn--vib'
+                  : key === 'motor_current_a'
+                  ? 'telemetry-tab-btn--curr'
+                  : 'telemetry-tab-btn--press';
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveMetric(key)}
+                  className={`telemetry-tab-btn ${metricClass} ${isActive ? 'active' : ''}`}
+                >
+                  <span className="telemetry-tab-dot" />
+                  <span>{METRIC_METADATA[key].label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Recharts Canvas */}
-        <div style={{ width: '100%', height: '240px' }}>
-          {loading ? (
-            <div
-              style={{
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                color: 'var(--text-muted)',
-              }}
-            >
-              <RefreshCw size={16} className="spin" />
-              <span>Acquiring telemetry buffer...</span>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="liveGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={metricConfig.fillGradient} stopOpacity={0.22} />
-                    <stop offset="80%" stopColor={metricConfig.fillGradient} stopOpacity={0.03} />
-                    <stop offset="100%" stopColor={metricConfig.fillGradient} stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+        {loading && chartData.length === 0 ? (
+          <div style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="skeleton" style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-sm)' }} />
+          </div>
+        ) : chartData.length === 0 ? (
+          <div
+            style={{
+              height: '200px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '13px',
+              gap: '8px',
+            }}
+          >
+            <span>Sensor telemetry unavailable</span>
+            {sensorError && (
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>({sensorError})</span>
+            )}
+          </div>
+        ) : (
+          <div style={{ height: '260px', width: '100%', position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 16, right: 28, left: 10, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                 <XAxis
-                  dataKey="index"
-                  type="number"
-                  domain={[0, chartData.length - 1]}
-                  ticks={[
-                    0,
-                    Math.floor(chartData.length * 0.25),
-                    Math.floor(chartData.length * 0.5),
-                    Math.floor(chartData.length * 0.75),
-                    chartData.length - 1,
-                  ]}
-                  tickFormatter={(idx: number) => {
-                    const pt = chartData[Math.round(idx)];
-                    return pt ? pt.formattedTime : '';
-                  }}
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  dataKey="recorded_at"
+                  stroke="var(--text-muted)"
+                  fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: '#e2e8f0' }}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  padding={{ left: 16, right: 16 }}
+                  minTickGap={45}
+                  tickFormatter={(val: string) => {
+                    const d = new Date(val);
+                    if (Number.isNaN(d.getTime())) return '';
+                    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                  }}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  stroke="var(--text-muted)"
+                  fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: '#e2e8f0' }}
-                  domain={[
-                    (dataMin: number) => Math.floor(dataMin * 0.95),
-                    (dataMax: number) => Math.ceil(dataMax * 1.05),
-                  ]}
+                  axisLine={{ stroke: 'var(--border-subtle)' }}
+                  unit={` ${metricConfig.unit}`}
+                  domain={['auto', 'auto']}
                 />
                 <Tooltip
                   isAnimationActive={false}
-                  cursor={{ stroke: metricConfig.color, strokeWidth: 1, strokeDasharray: '3 3' }}
+                  wrapperStyle={{ pointerEvents: 'none', outline: 'none', zIndex: 50 }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
-                      const d = payload[0].payload as TelemetryPoint;
+                      const item = payload[0];
+                      const val = typeof item.value === 'number'
+                        ? item.value.toFixed(metricConfig.decimals)
+                        : item.value;
+                      const timestamp = item.payload?.fullTimestamp || item.payload?.formattedTime || 'Recent';
                       return (
                         <div
                           style={{
                             backgroundColor: 'var(--bg-surface)',
                             border: '1px solid var(--border-default)',
                             borderRadius: 'var(--radius-sm)',
-                            padding: '8px 12px',
-                            boxShadow: 'var(--shadow-md)',
+                            padding: '10px 14px',
+                            boxShadow: 'var(--shadow-lg)',
+                            color: 'var(--text-primary)',
                             fontSize: '12px',
+                            minWidth: '170px',
+                            pointerEvents: 'none',
                           }}
                         >
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {currentRobot?.name} · {d.fullTime}
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                            {metricConfig.label}
                           </div>
-                          <div style={{ color: metricConfig.color, fontWeight: 700, marginTop: '4px' }}>
-                            {metricConfig.label}: {Number(d.value).toFixed(metricConfig.decimals)} {metricConfig.unit}
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
+                            <span
+                              className="font-mono tabular-nums"
+                              style={{ fontSize: '20px', fontWeight: 700, color: metricConfig.color }}
+                            >
+                              {val}
+                            </span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                              {metricConfig.unit}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '5px' }}>
+                            {timestamp}
                           </div>
                         </div>
                       );
                     }
                     return null;
                   }}
+                  cursor={{ stroke: 'var(--accent-primary)', strokeWidth: 1.5, strokeDasharray: '3 3' }}
                 />
-                <Area
+                <Line
                   type="monotone"
-                  dataKey="value"
+                  dataKey="val"
+                  name={metricConfig.label}
                   stroke={metricConfig.color}
-                  strokeWidth={2.2}
-                  fill="url(#liveGradient)"
-                  activeDot={{
-                    r: 5,
-                    stroke: metricConfig.color,
-                    strokeWidth: 2.5,
-                    fill: 'var(--bg-surface)',
-                  }}
+                  strokeWidth={2.5}
+                  dot={{ r: 2.5, fill: metricConfig.color, stroke: 'var(--bg-surface)', strokeWidth: 1 }}
+                  activeDot={{ r: 6, fill: metricConfig.color, stroke: '#ffffff', strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

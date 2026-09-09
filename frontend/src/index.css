@@ -337,6 +337,32 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-sm);
 }
 
+/* Interactive summary cards — adds pointer cursor, stronger border,
+   elevated shadow, and a very subtle background lift on hover.
+   Works in both light and dark mode via CSS custom properties. */
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-default);
+  box-shadow: var(--shadow-md);
+}
+
+/* Interactive telemetry/condition rows — subtle highlight on hover.
+   Used for Temperature, Vibration, Motor Current, Pressure rows. */
+.row-interactive {
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.row-interactive:hover {
+  background-color: var(--bg-surface-hover) !important;
+  border-color: var(--border-default) !important;
+  box-shadow: var(--shadow-xs);
+}
+
 .card-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle);
@@ -905,3 +931,1197 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Alert Toast Notifications — bottom-right stack, fixed identical dimensions
+   ========================================================================== */
+
+.alert-toast-stack {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.alert-toast {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 380px;
+  height: 88px;
+  min-height: 88px;
+  max-height: 88px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  will-change: transform;
+  overflow: hidden;
+}
+
+.alert-toast:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.25);
+  z-index: 10000;
+}
+
+/* Severity left-border accent */
+.alert-toast--critical { border-left: 4px solid #f87171; }
+.alert-toast--high     { border-left: 4px solid #fb923c; }
+.alert-toast--medium   { border-left: 4px solid #facc15; }
+.alert-toast--low      { border-left: 4px solid #4ade80; }
+
+/* Circular icon wrapper */
+.alert-toast__icon-wrap {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-toast__icon-wrap--critical,
+.alert-toast__icon-wrap--high {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+.alert-toast__icon-wrap--medium {
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+}
+.alert-toast__icon-wrap--low {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+/* Text block */
+.alert-toast__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.alert-toast__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.alert-toast__severity {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.alert-toast__robot {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alert-toast__type {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.alert-toast__desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.alert-toast__dismiss {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  border-radius: 4px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.alert-toast__dismiss:hover {
+  color: #f1f5f9;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes toast-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode & Light mode consistency */
+[data-theme="dark"] .alert-toast,
+.dark .alert-toast {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive adjustments for mobile viewport */
+@media (max-width: 440px) {
+  .alert-toast-stack {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    align-items: stretch;
+  }
+  .alert-toast {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* ==========================================================================
+   Sensor Telemetry Selector Hover & Active Styles
+   ========================================================================== */
+
+.telemetry-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-xs);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, background-color, border-color;
+}
+
+.telemetry-tab-btn .telemetry-tab-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--text-subtle, #9ca3af);
+  flex-shrink: 0;
+  transition: background-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.telemetry-tab-btn svg,
+.telemetry-tab-btn .telemetry-tab-icon {
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Temperature Hover */
+.telemetry-tab-btn--temp:hover:not(.active) {
+  background-color: rgba(234, 88, 12, 0.09);
+  border-color: rgba(234, 88, 12, 0.35);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+  font-weight: 600;
+}
+.telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-dot {
+  background-color: #ea580c;
+  box-shadow: 0 0 6px rgba(234, 88, 12, 0.6);
+  transform: scale(1.18);
+}
+.telemetry-tab-btn--temp:hover:not(.active) svg,
+.telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #ea580c;
+  transform: scale(1.1);
+}
+
+/* Vibration Hover */
+.telemetry-tab-btn--vib:hover:not(.active) {
+  background-color: rgba(14, 165, 233, 0.09);
+  border-color: rgba(14, 165, 233, 0.35);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  font-weight: 600;
+}
+.telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-dot {
+  background-color: #0ea5e9;
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.6);
+  transform: scale(1.18);
+}
+.telemetry-tab-btn--vib:hover:not(.active) svg,
+.telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #0ea5e9;
+  transform: scale(1.1);
+}
+
+/* Motor Current Hover */
+.telemetry-tab-btn--curr:hover:not(.active) {
+  background-color: rgba(139, 92, 246, 0.09);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  font-weight: 600;
+}
+.telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-dot {
+  background-color: #8b5cf6;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.6);
+  transform: scale(1.18);
+}
+.telemetry-tab-btn--curr:hover:not(.active) svg,
+.telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #8b5cf6;
+  transform: scale(1.1);
+}
+
+/* Pressure Hover */
+.telemetry-tab-btn--press:hover:not(.active) {
+  background-color: rgba(16, 185, 129, 0.09);
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
+  color: #059669;
+  font-weight: 600;
+}
+.telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  transform: scale(1.18);
+}
+.telemetry-tab-btn--press:hover:not(.active) svg,
+.telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #10b981;
+  transform: scale(1.1);
+}
+
+/* Active State (Light Theme) */
+.telemetry-tab-btn.active {
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-xs);
+  border-color: var(--border-subtle);
+  font-weight: 700;
+}
+.telemetry-tab-btn--temp.active {
+  color: #ea580c;
+}
+.telemetry-tab-btn--temp.active .telemetry-tab-dot {
+  background-color: #ea580c;
+}
+.telemetry-tab-btn--vib.active {
+  color: #0ea5e9;
+}
+.telemetry-tab-btn--vib.active .telemetry-tab-dot {
+  background-color: #0ea5e9;
+}
+.telemetry-tab-btn--curr.active {
+  color: #8b5cf6;
+}
+.telemetry-tab-btn--curr.active .telemetry-tab-dot {
+  background-color: #8b5cf6;
+}
+.telemetry-tab-btn--press.active {
+  color: #10b981;
+}
+.telemetry-tab-btn--press.active .telemetry-tab-dot {
+  background-color: #10b981;
+}
+
+/* ==========================================================================
+   Dark Theme Overrides for Telemetry Selector Tabs
+   ========================================================================== */
+
+[data-theme="dark"] .telemetry-tab-btn--temp:hover:not(.active),
+.dark .telemetry-tab-btn--temp:hover:not(.active) {
+  background-color: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.48);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: #fb923c;
+  font-weight: 600;
+}
+[data-theme="dark"] .telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-dot,
+.dark .telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-dot {
+  background-color: #fb923c;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.8);
+}
+[data-theme="dark"] .telemetry-tab-btn--temp:hover:not(.active) svg,
+.dark .telemetry-tab-btn--temp:hover:not(.active) svg,
+[data-theme="dark"] .telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-icon,
+.dark .telemetry-tab-btn--temp:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #fb923c;
+}
+
+[data-theme="dark"] .telemetry-tab-btn--vib:hover:not(.active),
+.dark .telemetry-tab-btn--vib:hover:not(.active) {
+  background-color: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.48);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: #38bdf8;
+  font-weight: 600;
+}
+[data-theme="dark"] .telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-dot,
+.dark .telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-dot {
+  background-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+}
+[data-theme="dark"] .telemetry-tab-btn--vib:hover:not(.active) svg,
+.dark .telemetry-tab-btn--vib:hover:not(.active) svg,
+[data-theme="dark"] .telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-icon,
+.dark .telemetry-tab-btn--vib:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .telemetry-tab-btn--curr:hover:not(.active),
+.dark .telemetry-tab-btn--curr:hover:not(.active) {
+  background-color: rgba(167, 139, 250, 0.18);
+  border-color: rgba(167, 139, 250, 0.48);
+  box-shadow: 0 0 14px rgba(167, 139, 250, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: #c4b5fd;
+  font-weight: 600;
+}
+[data-theme="dark"] .telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-dot,
+.dark .telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-dot {
+  background-color: #c4b5fd;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.8);
+}
+[data-theme="dark"] .telemetry-tab-btn--curr:hover:not(.active) svg,
+.dark .telemetry-tab-btn--curr:hover:not(.active) svg,
+[data-theme="dark"] .telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-icon,
+.dark .telemetry-tab-btn--curr:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #c4b5fd;
+}
+
+[data-theme="dark"] .telemetry-tab-btn--press:hover:not(.active),
+.dark .telemetry-tab-btn--press:hover:not(.active) {
+  background-color: rgba(52, 211, 153, 0.18);
+  border-color: rgba(52, 211, 153, 0.48);
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: #6ee7b7;
+  font-weight: 600;
+}
+[data-theme="dark"] .telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-dot,
+.dark .telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-dot {
+  background-color: #6ee7b7;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+}
+[data-theme="dark"] .telemetry-tab-btn--press:hover:not(.active) svg,
+.dark .telemetry-tab-btn--press:hover:not(.active) svg,
+[data-theme="dark"] .telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-icon,
+.dark .telemetry-tab-btn--press:hover:not(.active) .telemetry-tab-icon {
+  opacity: 1 !important;
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .telemetry-tab-btn.active,
+.dark .telemetry-tab-btn.active {
+  background-color: var(--bg-surface);
+  border-color: var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .telemetry-tab-btn--temp.active,
+.dark .telemetry-tab-btn--temp.active {
+  color: #fb923c;
+}
+[data-theme="dark"] .telemetry-tab-btn--temp.active .telemetry-tab-dot,
+.dark .telemetry-tab-btn--temp.active .telemetry-tab-dot {
+  background-color: #fb923c;
+}
+[data-theme="dark"] .telemetry-tab-btn--vib.active,
+.dark .telemetry-tab-btn--vib.active {
+  color: #38bdf8;
+}
+[data-theme="dark"] .telemetry-tab-btn--vib.active .telemetry-tab-dot,
+.dark .telemetry-tab-btn--vib.active .telemetry-tab-dot {
+  background-color: #38bdf8;
+}
+[data-theme="dark"] .telemetry-tab-btn--curr.active,
+.dark .telemetry-tab-btn--curr.active {
+  color: #c4b5fd;
+}
+[data-theme="dark"] .telemetry-tab-btn--curr.active .telemetry-tab-dot,
+.dark .telemetry-tab-btn--curr.active .telemetry-tab-dot {
+  background-color: #c4b5fd;
+}
+[data-theme="dark"] .telemetry-tab-btn--press.active,
+.dark .telemetry-tab-btn--press.active {
+  color: #6ee7b7;
+}
+[data-theme="dark"] .telemetry-tab-btn--press.active .telemetry-tab-dot,
+.dark .telemetry-tab-btn--press.active .telemetry-tab-dot {
+  background-color: #6ee7b7;
+}
+
+/* ==========================================================================
+   Top Navigation Header Interactive Hover & Focus System
+   ========================================================================== */
+
+/* 1. Hamburger Menu Button */
+.topbar-hamburger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-hamburger-btn:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .topbar-hamburger-btn:hover,
+.dark .topbar-hamburger-btn:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.22);
+}
+
+.topbar-hamburger-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* 2. RoboPulse Brand Logo/Name */
+.topbar-brand-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-brand-btn:hover {
+  background-color: rgba(37, 99, 235, 0.05);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="dark"] .topbar-brand-btn:hover,
+.dark .topbar-brand-btn:hover {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.18);
+}
+
+.topbar-brand-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* 3. Global Search Input */
+.topbar-search-input {
+  width: 100%;
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  height: 38px;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 0 12px 0 34px;
+  outline: none;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-search-input:hover:not(:focus) {
+  background-color: var(--bg-surface);
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+[data-theme="dark"] .topbar-search-input:hover:not(:focus),
+.dark .topbar-search-input:hover:not(:focus) {
+  background-color: rgba(26, 35, 58, 0.9);
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.18);
+}
+
+.topbar-search-input:focus {
+  background-color: var(--bg-surface);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+[data-theme="dark"] .topbar-search-input:focus,
+.dark .topbar-search-input:focus {
+  background-color: var(--bg-surface);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.topbar-search-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 50%;
+  transition: all 180ms ease;
+}
+
+.topbar-search-clear-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+/* 4. Live Clock Badge */
+.topbar-clock-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  cursor: default;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-clock-badge:hover {
+  background-color: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.topbar-clock-badge:hover .topbar-clock-icon {
+  color: #2563eb;
+}
+
+[data-theme="dark"] .topbar-clock-badge:hover,
+.dark .topbar-clock-badge:hover {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .topbar-clock-badge:hover .topbar-clock-icon,
+.dark .topbar-clock-badge:hover .topbar-clock-icon {
+  color: #60a5fa;
+}
+
+/* 5. API Live Status Indicator */
+.topbar-api-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  cursor: default;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-api-badge--operational {
+  background-color: var(--status-operational-bg);
+  border: 1px solid var(--status-operational-border);
+  color: var(--status-operational-fg);
+}
+
+.topbar-api-badge--operational:hover {
+  background-color: rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.45);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.18);
+}
+
+[data-theme="dark"] .topbar-api-badge--operational:hover,
+.dark .topbar-api-badge--operational:hover {
+  background-color: rgba(22, 163, 74, 0.24);
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.28);
+}
+
+.topbar-api-badge--offline {
+  background-color: var(--status-offline-bg);
+  border: 1px solid var(--status-offline-border);
+  color: var(--status-offline-fg);
+}
+
+.topbar-api-badge--offline:hover {
+  background-color: rgba(220, 38, 38, 0.16);
+  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.18);
+}
+
+.topbar-api-badge--checking {
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.topbar-api-badge--checking:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .topbar-api-badge--checking:hover,
+.dark .topbar-api-badge--checking:hover {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #f8fafc;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
+}
+
+.topbar-api-badge:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
+}
+
+/* 6. Notification Bell */
+.topbar-bell-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-bell-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .topbar-bell-btn:hover,
+.dark .topbar-bell-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.28);
+}
+
+.topbar-bell-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+/* 7. Alert Count Button */
+.topbar-alert-count-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background-color: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--radius-full);
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 28px;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-alert-count-btn:hover {
+  background-color: rgba(220, 38, 38, 0.18);
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #b91c1c;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+[data-theme="dark"] .topbar-alert-count-btn:hover,
+.dark .topbar-alert-count-btn:hover {
+  background-color: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35);
+}
+
+.topbar-alert-count-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+/* 8. Refresh Button */
+.topbar-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-refresh-btn:hover:not(:disabled) {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .topbar-refresh-btn:hover:not(:disabled),
+.dark .topbar-refresh-btn:hover:not(:disabled) {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.22);
+}
+
+.topbar-refresh-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* 9. Theme Toggle Button */
+.topbar-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--bg-surface-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-theme-btn:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .topbar-theme-btn:hover,
+.dark .topbar-theme-btn:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #f59e0b;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+}
+
+.topbar-theme-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* 10. User Profile Button & Dropdown Trigger */
+.topbar-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-profile-btn:hover,
+.topbar-profile-btn[aria-expanded="true"] {
+  background-color: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .topbar-profile-btn:hover,
+[data-theme="dark"] .topbar-profile-btn[aria-expanded="true"],
+.dark .topbar-profile-btn:hover,
+.dark .topbar-profile-btn[aria-expanded="true"] {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2);
+}
+
+.topbar-profile-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Report Template Selector Tabs (Hover & Active System)
+   ========================================================================== */
+
+.report-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.report-tab-btn:hover:not(.active) {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .report-tab-btn:hover:not(.active),
+.dark .report-tab-btn:hover:not(.active) {
+  background-color: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.22);
+}
+
+.report-tab-btn.active {
+  font-weight: 600;
+  background-color: var(--bg-surface);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-xs);
+}
+
+.report-tab-btn.active:hover {
+  background-color: var(--bg-surface);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .report-tab-btn.active {
+  background-color: var(--bg-surface);
+  color: #60a5fa;
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .report-tab-btn.active:hover,
+.dark .report-tab-btn.active:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+}
+
+.report-tab-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* ==========================================================================
+   Maintenance Tab Selector Buttons (Hover & Active System)
+   ========================================================================== */
+
+.maintenance-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Default / Upcoming / Budget Hover & Active */
+.maintenance-tab-btn:hover:not(.active) {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .maintenance-tab-btn:hover:not(.active),
+.dark .maintenance-tab-btn:hover:not(.active) {
+  background-color: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.22);
+}
+
+.maintenance-tab-btn.active {
+  font-weight: 600;
+  background-color: var(--bg-surface);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-xs);
+}
+
+.maintenance-tab-btn.active:hover {
+  background-color: var(--bg-surface);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.active {
+  background-color: var(--bg-surface);
+  color: #60a5fa;
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.active:hover,
+.dark .maintenance-tab-btn.active:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+}
+
+/* Overdue Tab (Red Accent) */
+.maintenance-tab-btn.overdue:hover:not(.active) {
+  background-color: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.28);
+  color: #dc2626;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.overdue:hover:not(.active),
+.dark .maintenance-tab-btn.overdue:hover:not(.active) {
+  background-color: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.25);
+}
+
+.maintenance-tab-btn.overdue.active {
+  color: #dc2626;
+}
+
+.maintenance-tab-btn.overdue.active:hover {
+  border-color: rgba(220, 38, 38, 0.38);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.overdue.active {
+  color: #f87171;
+}
+
+[data-theme="dark"] .maintenance-tab-btn.overdue.active:hover,
+.dark .maintenance-tab-btn.overdue.active:hover {
+  border-color: rgba(239, 68, 68, 0.55);
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+}
+
+/* Completed Tab (Green Accent) */
+.maintenance-tab-btn.completed:hover:not(.active) {
+  background-color: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.28);
+  color: #16a34a;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.12);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.completed:hover:not(.active),
+.dark .maintenance-tab-btn.completed:hover:not(.active) {
+  background-color: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.25);
+}
+
+.maintenance-tab-btn.completed.active {
+  color: #16a34a;
+}
+
+.maintenance-tab-btn.completed.active:hover {
+  border-color: rgba(22, 163, 74, 0.38);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+}
+
+[data-theme="dark"] .maintenance-tab-btn.completed.active {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .maintenance-tab-btn.completed.active:hover,
+.dark .maintenance-tab-btn.completed.active:hover {
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.3);
+}
+
+/* Focus Visible */
+.maintenance-tab-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.maintenance-tab-btn.overdue:focus-visible {
+  outline-color: #ef4444;
+}
+
+.maintenance-tab-btn.completed:focus-visible {
+  outline-color: #22c55e;
+}
+
+/* ==========================================================================
+   Settings Appearance Toggle Buttons (Hover & Active System)
+   ========================================================================== */
+
+.settings-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-toggle-btn:hover:not(.active) {
+  background-color: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .settings-toggle-btn:hover:not(.active),
+.dark .settings-toggle-btn:hover:not(.active) {
+  background-color: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.22);
+}
+
+.settings-toggle-btn.active {
+  font-weight: 700;
+  background-color: var(--bg-surface);
+  color: var(--accent-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-xs);
+}
+
+.settings-toggle-btn.active:hover {
+  background-color: var(--bg-surface);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .settings-toggle-btn.active {
+  background-color: var(--bg-surface);
+  color: #60a5fa;
+  border: 1px solid var(--border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .settings-toggle-btn.active:hover,
+.dark .settings-toggle-btn.active:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+}
+
+.settings-toggle-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+
+

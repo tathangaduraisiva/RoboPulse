@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Calendar,
@@ -31,9 +31,22 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
   onRefreshMaintenance,
 }) => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'upcoming' | 'overdue' | 'completed'>('upcoming');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<'upcoming' | 'overdue' | 'completed' | 'budget'>('upcoming');
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  // Sync the ?tab= query param to the tab state so that clicking a summary
+  // card navigates directly to the correct filtered view.
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'upcoming' || t === 'overdue' || t === 'completed' || t === 'budget') {
+      setTab(t);
+    } else if (!t) {
+      setTab('upcoming');
+    }
+  }, [searchParams]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -66,14 +79,17 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
     return maintenance.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   }, [maintenance]);
 
-  // Filtered by current tab, search, and type
+  // Filtered by current tab, search, and type.
+  // 'budget' shows all tasks sorted by cost descending.
   const activeList = useMemo(() => {
     const list =
       tab === 'upcoming'
         ? upcomingList
         : tab === 'overdue'
         ? overdueList
-        : completedList;
+        : tab === 'completed'
+        ? completedList
+        : [...maintenance].sort((a, b) => (Number(b.cost) || 0) - (Number(a.cost) || 0));
 
     return list.filter((item) => {
       const matchesSearch =
@@ -222,13 +238,23 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           marginBottom: '22px',
         }}
       >
+        {/* Card 1 — Upcoming Tasks */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/maintenance?tab=upcoming')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/maintenance?tab=upcoming')}
+          onMouseEnter={() => setHoveredCard('upcoming')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'upcoming' ? { boxShadow: '0 4px 16px rgba(147,51,234,0.10)', borderColor: '#d8b4fe' } : {}),
           }}
         >
           <div>
@@ -258,13 +284,23 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           </div>
         </div>
 
+        {/* Card 2 — Overdue Tasks */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/maintenance?tab=overdue')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/maintenance?tab=overdue')}
+          onMouseEnter={() => setHoveredCard('overdue')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'overdue' ? { boxShadow: '0 4px 16px rgba(220,38,38,0.10)', borderColor: '#fca5a5' } : {}),
           }}
         >
           <div>
@@ -294,13 +330,23 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           </div>
         </div>
 
+        {/* Card 3 — Completed Service */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/maintenance?tab=completed')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/maintenance?tab=completed')}
+          onMouseEnter={() => setHoveredCard('completed')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'completed' ? { boxShadow: '0 4px 16px rgba(22,163,74,0.10)', borderColor: '#86efac' } : {}),
           }}
         >
           <div>
@@ -330,18 +376,28 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
           </div>
         </div>
 
+        {/* Card 4 — Service Cost */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/maintenance?tab=budget')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/maintenance?tab=budget')}
+          onMouseEnter={() => setHoveredCard('budget')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'budget' ? { boxShadow: '0 4px 16px rgba(37,99,235,0.10)', borderColor: '#93c5fd' } : {}),
           }}
         >
           <div>
             <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Total Service Budget
+              Service Cost
             </div>
             <div
               className="font-mono tabular-nums"
@@ -393,56 +449,34 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
         >
           <button
             type="button"
-            onClick={() => setTab('upcoming')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: tab === 'upcoming' ? 600 : 500,
-              backgroundColor: tab === 'upcoming' ? 'var(--bg-surface)' : 'transparent',
-              color: tab === 'upcoming' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              boxShadow: tab === 'upcoming' ? 'var(--shadow-xs)' : 'none',
-              border: tab === 'upcoming' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
+            className={`maintenance-tab-btn upcoming ${tab === 'upcoming' ? 'active' : ''}`}
+            onClick={() => { setTab('upcoming'); navigate('/maintenance?tab=upcoming'); }}
           >
             Upcoming ({upcomingList.length})
           </button>
 
           <button
             type="button"
-            onClick={() => setTab('overdue')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: tab === 'overdue' ? 600 : 500,
-              backgroundColor: tab === 'overdue' ? 'var(--bg-surface)' : 'transparent',
-              color: tab === 'overdue' ? '#dc2626' : 'var(--text-secondary)',
-              boxShadow: tab === 'overdue' ? 'var(--shadow-xs)' : 'none',
-              border: tab === 'overdue' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
+            className={`maintenance-tab-btn overdue ${tab === 'overdue' ? 'active' : ''}`}
+            onClick={() => { setTab('overdue'); navigate('/maintenance?tab=overdue'); }}
           >
             Overdue ({overdueList.length})
           </button>
 
           <button
             type="button"
-            onClick={() => setTab('completed')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '12px',
-              fontWeight: tab === 'completed' ? 600 : 500,
-              backgroundColor: tab === 'completed' ? 'var(--bg-surface)' : 'transparent',
-              color: tab === 'completed' ? '#16a34a' : 'var(--text-secondary)',
-              boxShadow: tab === 'completed' ? 'var(--shadow-xs)' : 'none',
-              border: tab === 'completed' ? '1px solid var(--border-subtle)' : '1px solid transparent',
-              cursor: 'pointer',
-            }}
+            className={`maintenance-tab-btn completed ${tab === 'completed' ? 'active' : ''}`}
+            onClick={() => { setTab('completed'); navigate('/maintenance?tab=completed'); }}
           >
             Completed ({completedList.length})
+          </button>
+
+          <button
+            type="button"
+            className={`maintenance-tab-btn budget ${tab === 'budget' ? 'active' : ''}`}
+            onClick={() => { setTab('budget'); navigate('/maintenance?tab=budget'); }}
+          >
+            Budget
           </button>
         </div>
 
@@ -486,7 +520,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
               <th>Type</th>
               <th>Technician</th>
               <th>Est. Cost</th>
-              <th>{tab === 'completed' ? 'Completed Date' : 'Due Date'}</th>
+              <th>{tab === 'completed' ? 'Completed Date' : tab === 'budget' ? 'Due / Completed' : 'Due Date'}</th>
               <th style={{ textAlign: 'right' }}>Action</th>
             </tr>
           </thead>
@@ -576,7 +610,11 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
                             color: record.status === 'overdue' ? '#dc2626' : 'var(--text-primary)',
                           }}
                         >
-                          {formatDateTime(tab === 'completed' ? record.performed_at : record.next_due_at)}
+                          {formatDateTime(
+                            tab === 'completed' || (tab === 'budget' && record.status === 'completed')
+                              ? record.performed_at
+                              : record.next_due_at
+                          )}
                         </span>
                       </div>
                     </td>

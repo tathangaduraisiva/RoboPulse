@@ -26,8 +26,9 @@ export async function getSensorReadingsByRobot(robotId: string) {
         recorded_at
       FROM sensor_readings
       WHERE robot_id = $1
+        AND recorded_at >= NOW() - INTERVAL '1 hour'
       ORDER BY recorded_at DESC
-      LIMIT 100;
+      LIMIT 1800;
     `,
         [robotId]
     );
@@ -42,7 +43,9 @@ export async function getSensorReadingsByRobot(robotId: string) {
 
     try {
         if (redisClient.isOpen && rows.length > 0) {
-            await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 10 });
+            // TTL of 1 s — short enough that each 2-second frontend poll
+            // always fetches a fresh result containing the newest inserted row.
+            await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 1 });
         }
     } catch {
         // Ignore cache errors

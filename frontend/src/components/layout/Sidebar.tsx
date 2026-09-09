@@ -178,12 +178,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             style={{
               fontSize: '16px',
               fontWeight: 700,
-              color: 'var(--text-primary)',
               letterSpacing: '-0.02em',
               lineHeight: 1.2,
             }}
           >
-            RoboPulse
+            <span style={{ color: '#1769D1' }}>Robo</span><span style={{ color: '#F57C00' }}>Pulse</span>
           </div>
           <div
             style={{

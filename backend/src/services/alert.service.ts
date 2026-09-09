@@ -1,4 +1,6 @@
 import { pool } from "../db/postgres.js";
+import { invalidateRobotPredictionCache } from "./predictionEngine.js";
+import { syncRobotStatus } from "./robot.service.js";
 
 export interface AlertRecord {
     id: string;
@@ -39,7 +41,7 @@ export async function getAllAlerts(): Promise<AlertRecord[]> {
             a.message AS description,
             a.status AS status,
             a.created_at AS detected_at,
-            a.updated_at AS resolved_at
+            CASE WHEN a.status = 'resolved' THEN a.updated_at ELSE NULL END AS resolved_at
         FROM alerts a
         JOIN robots r ON a.robot_id = r.id
         LEFT JOIN production_lines pl ON r.line_id = pl.id
@@ -72,7 +74,7 @@ export async function getAlertById(id: string): Promise<AlertRecord | null> {
             a.message AS description,
             a.status AS status,
             a.created_at AS detected_at,
-            a.updated_at AS resolved_at
+            CASE WHEN a.status = 'resolved' THEN a.updated_at ELSE NULL END AS resolved_at
         FROM alerts a
         JOIN robots r ON a.robot_id = r.id
         LEFT JOIN production_lines pl ON r.line_id = pl.id
@@ -92,7 +94,55 @@ export async function getAlertById(id: string): Promise<AlertRecord | null> {
     };
 }
 
-export async function createAlertRecord(input: CreateAlertInput): Promise<AlertRecord> {
+export async function createAlertRecord(input: CreateAlertInput): Promise<AlertRecord | null> {
+    // Deduplication: do not create a new alert if an equivalent unresolved alert
+    // already exists for this robot/type/severity.
+    const isOfflineType = input.type === 'Offline' || input.type === 'offline';
+    const dedupCheck = await pool.query(
+        isOfflineType
+            ? `SELECT id FROM alerts
+               WHERE robot_id = $1
+                 AND type = $2
+                 AND status NOT IN ('resolved')
+               LIMIT 1;`
+            : `SELECT id FROM alerts
+               WHERE robot_id = $1
+                 AND type = $2
+                 AND severity = $3
+                 AND status NOT IN ('resolved')
+                 AND created_at >= NOW() - INTERVAL '24 hours'
+               LIMIT 1;`,
+        isOfflineType
+            ? [input.robot_id, input.type]
+            : [input.robot_id, input.type, input.severity]
+    );
+
+    if (dedupCheck.rows.length > 0) {
+        console.log(
+            `[AlertService] Skipping duplicate alert creation for robot ${input.robot_id} ` +
+            `type=${input.type} severity=${input.severity} (existing alert: ${dedupCheck.rows[0].id})`
+        );
+        const existing = await getAlertById(dedupCheck.rows[0].id);
+        return existing;
+    }
+
+    if (!isOfflineType && (input.severity === 'critical' || input.severity === 'high')) {
+        const handledCheck = await pool.query(
+            `SELECT id FROM handled_conditions
+             WHERE robot_id = $1
+               AND suppression_expires_at > NOW()
+             LIMIT 1;`,
+            [input.robot_id]
+        );
+        if (handledCheck.rows.length > 0) {
+            console.log(
+                `[AlertService] Suppressing new ${input.severity} alert for robot ${input.robot_id} ` +
+                `— robot has an active handled condition (maintenance recently completed).`
+            );
+            return null;
+        }
+    }
+
     const query = `
         INSERT INTO alerts (robot_id, type, severity, message, status)
         VALUES ($1, $2, $3, $4, COALESCE($5, 'new'))
@@ -105,7 +155,15 @@ export async function createAlertRecord(input: CreateAlertInput): Promise<AlertR
         input.message,
         input.status || 'new',
     ]);
-    return result.rows[0];
+    const created = result.rows[0];
+
+    if (created?.robot_id) {
+        await syncRobotStatus(created.robot_id).catch((err) => {
+            console.warn(`[AlertService] Robot status sync failed for robot ${created.robot_id}:`, err);
+        });
+    }
+
+    return created;
 }
 
 export async function updateAlertStatus(
@@ -145,7 +203,15 @@ export async function updateAlertStatus(
     `;
     const result = await pool.query(query, values);
     if (result.rows.length === 0) return null;
-    return result.rows[0];
+    const updated = result.rows[0];
+
+    if (updated?.robot_id) {
+        await syncRobotStatus(updated.robot_id).catch((err) => {
+            console.warn(`[AlertService] Robot status sync failed for robot ${updated.robot_id}:`, err);
+        });
+    }
+
+    return updated;
 }
 
 export async function acknowledgeAlert(id: string): Promise<AlertRecord | null> {
@@ -157,10 +223,23 @@ export async function acknowledgeAlert(id: string): Promise<AlertRecord | null> 
     `;
     const result = await pool.query(query, [id]);
     if (result.rows.length === 0) return null;
-    return result.rows[0];
+    const acked = result.rows[0];
+
+    if (acked?.robot_id) {
+        await syncRobotStatus(acked.robot_id).catch((err) => {
+            console.warn(`[AlertService] Robot status sync failed for robot ${acked.robot_id}:`, err);
+        });
+    }
+
+    return acked;
 }
 
 export async function resolveAlert(id: string): Promise<AlertRecord | null> {
+    // Fetch the robot_id so we can sync the robot status and invalidate prediction cache
+    const fetchQuery = `SELECT robot_id FROM alerts WHERE id = $1;`;
+    const fetchResult = await pool.query(fetchQuery, [id]);
+    const robotId: string | undefined = fetchResult.rows[0]?.robot_id;
+
     const query = `
         UPDATE alerts
         SET status = 'resolved', updated_at = NOW()
@@ -169,5 +248,19 @@ export async function resolveAlert(id: string): Promise<AlertRecord | null> {
     `;
     const result = await pool.query(query, [id]);
     if (result.rows.length === 0) return null;
-    return result.rows[0];
+
+    if (robotId) {
+        // Authoritatively recalculate and synchronize the robot's status in PostgreSQL
+        await syncRobotStatus(robotId).catch((err) => {
+            console.warn(`[AlertService] Robot status sync failed for robot ${robotId}:`, err);
+        });
+
+        // Invalidate the Redis prediction cache for this robot so the next prediction
+        // evaluation reflects the resolved alert immediately.
+        invalidateRobotPredictionCache(robotId).catch((err) => {
+            console.warn(`[AlertService] Cache invalidation failed for robot ${robotId}:`, err);
+        });
+    }
+
+    return getAlertById(id);
 }

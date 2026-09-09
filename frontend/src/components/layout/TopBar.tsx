@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  RefreshCw,
+  RotateCw,
   Search,
   Bell,
   CheckCircle2,
@@ -13,9 +13,12 @@ import {
   ChevronDown,
   X,
   Clock,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { HealthStatus } from '../../types/api';
 import type { Robot } from '../../types/robot';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SearchResult {
   robot: Robot;
@@ -59,11 +62,12 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleSidebar,
   robots = [],
   onSelectRobot,
-  user = { name: 'Admin', role: 'Administrator', initials: 'AD' },
+  user = { name: 'T A THANGADURAI SIVA', role: 'operator', initials: 'TA' },
   onLogout,
   onNavigateSettings,
 }) => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   // Connected = health check succeeded and returned operational status
   // Show as connecting (neither connected nor offline label) if not yet checked
@@ -210,23 +214,10 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         <button
           type="button"
-          className="btn-icon"
+          className="topbar-hamburger-btn"
           onClick={onToggleSidebar}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '38px',
-            height: '38px',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--bg-surface-secondary)',
-            border: '1px solid var(--border-subtle)',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: 'background-color 0.15s ease, border-color 0.15s ease',
-          }}
           aria-label="Toggle Sidebar Navigation"
+          title="Toggle Sidebar Navigation"
         >
           <Menu size={20} strokeWidth={2.2} />
         </button>
@@ -234,20 +225,8 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* RoboPulse Logo + Brand Title */}
         <button
           type="button"
+          className="topbar-brand-btn"
           onClick={() => navigate('/overview')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '9px',
-            backgroundColor: 'transparent',
-            border: 'none',
-            padding: '4px 6px',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            textAlign: 'left',
-            flexShrink: 0,
-            transition: 'opacity 0.15s ease',
-          }}
           title="RoboPulse Overview"
           aria-label="RoboPulse Overview"
         >
@@ -274,11 +253,10 @@ export const TopBar: React.FC<TopBarProps> = ({
               style={{
                 fontSize: '15px',
                 fontWeight: 700,
-                color: 'var(--text-primary)',
                 letterSpacing: '-0.02em',
               }}
             >
-              RoboPulse
+              <span style={{ color: '#1769D1' }}>Robo</span><span style={{ color: '#F57C00' }}>Pulse</span>
             </span>
             <span
               style={{
@@ -304,41 +282,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             <input
               ref={inputRef}
               type="text"
-              className="search-input"
+              className="topbar-search-input"
               placeholder="Search robot, ID, serial, model, manufacturer..."
               value={searchTerm}
               onChange={(e) => onSearchChange?.(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onKeyDown={handleSearchKeyDown}
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--bg-surface-secondary)',
-                borderColor: searchFocused ? 'var(--accent-primary)' : 'var(--border-subtle)',
-                height: '38px',
-                fontSize: '13px',
-                paddingRight: searchTerm ? '32px' : '12px',
-                boxShadow: searchFocused ? '0 0 0 2px rgba(37,99,235,0.15)' : 'none',
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-              }}
               autoComplete="off"
               spellCheck={false}
             />
             {searchTerm && (
               <button
                 type="button"
+                className="topbar-search-clear-btn"
                 onClick={clearSearch}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  padding: '2px',
-                }}
                 aria-label="Clear search"
               >
                 <X size={14} />
@@ -501,54 +458,27 @@ export const TopBar: React.FC<TopBarProps> = ({
       >
         {/* Live Clock Badge */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            padding: '5px 10px',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--bg-surface-secondary)',
-            border: '1px solid var(--border-subtle)',
-            whiteSpace: 'nowrap',
-          }}
+          className="topbar-clock-badge"
           title="Local Time"
+          tabIndex={0}
+          aria-label={`Current time: ${currentTime}`}
         >
-          <Clock size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+          <Clock size={13} className="topbar-clock-icon" style={{ color: 'var(--accent-primary)', flexShrink: 0, transition: 'color 220ms ease' }} />
           <span className="font-mono tabular-nums">{currentTime}</span>
         </div>
 
         {/* Live API Status Badge */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            fontSize: '11.5px',
-            fontWeight: 600,
-            padding: '5px 10px',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: isChecking
-              ? 'var(--bg-surface-secondary)'
+          className={`topbar-api-badge ${
+            isChecking
+              ? 'topbar-api-badge--checking'
               : isConnected
-              ? 'var(--status-operational-bg)'
-              : 'var(--status-offline-bg)',
-            border: `1px solid ${
-              isChecking
-                ? 'var(--border-subtle)'
-                : isConnected
-                ? 'var(--status-operational-border)'
-                : 'var(--status-offline-border)'
-            }`,
-            color: isChecking
-              ? 'var(--text-muted)'
-              : isConnected
-              ? 'var(--status-operational-fg)'
-              : 'var(--status-offline-fg)',
-            whiteSpace: 'nowrap',
-          }}
+              ? 'topbar-api-badge--operational'
+              : 'topbar-api-badge--offline'
+          }`}
+          title={isConnected ? 'RoboPulse API Operational' : healthError ? 'RoboPulse API Offline' : 'Checking API Status...'}
+          tabIndex={0}
+          aria-label={isConnected ? 'API Live' : healthError ? 'API Offline' : 'Connecting'}
         >
           {isChecking ? (
             <>
@@ -583,17 +513,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           type="button"
           onClick={onNavigateAlerts}
-          className="btn-icon"
-          style={{
-            position: 'relative',
-            width: '38px',
-            height: '38px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--bg-surface-secondary)',
-          }}
+          className="topbar-bell-btn"
           title={alertCount > 0 ? `${alertCount} active alerts` : 'No active alerts'}
+          aria-label={alertCount > 0 ? `${alertCount} active alerts` : 'No active alerts'}
         >
-          <Bell size={17} style={{ color: 'var(--text-secondary)' }} />
+          <Bell size={17} style={{ color: 'inherit', transition: 'color 220ms ease' }} />
           {alertCount > 0 && (
             <span
               style={{
@@ -605,12 +529,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                 borderRadius: '50%',
                 backgroundColor: '#dc2626',
                 color: '#ffffff',
-                fontSize: '9px',
+                fontSize: '10px',
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid var(--bg-surface)',
               }}
             >
               {alertCount > 9 ? '9+' : alertCount}
@@ -618,82 +541,97 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
         </button>
 
-        {/* Refresh Button */}
+        {/* Active Alert Badge Shortcut */}
+        {alertCount > 0 && (
+          <button
+            type="button"
+            className="topbar-alert-count-btn"
+            onClick={onNavigateAlerts}
+            aria-label={`${alertCount} active alerts`}
+          >
+            <Bell size={13} />
+            <span>{alertCount}</span>
+          </button>
+        )}
+
+        {/* Manual Refresh Button */}
         <button
           type="button"
-          className="btn btn-default"
+          className="topbar-refresh-btn"
           onClick={onRefresh}
           disabled={isRefreshing}
-          title={
-            lastUpdated
-              ? `Last updated: ${lastUpdated.toLocaleTimeString()}`
-              : 'Refresh fleet telemetry'
-          }
-          style={{ height: '36px', padding: '0 12px', fontWeight: 600, fontSize: '12px' }}
+          aria-label="Refresh Dashboard Data"
+          title={lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString()}` : 'Refresh'}
         >
-          <RefreshCw
+          <RotateCw
             size={13}
-            className={isRefreshing ? 'spin' : ''}
-            style={{ color: 'var(--accent-primary)' }}
+            style={{
+              animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+              color: isRefreshing ? 'var(--accent-primary)' : 'inherit',
+              transition: 'color 220ms ease',
+            }}
           />
-          <span style={{ display: 'none' }}>Refresh</span>
+          <span className="hide-mobile" style={{ fontSize: '11.5px' }}>
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </span>
         </button>
 
-        {/* User Profile with Dropdown */}
+        {/* Dark/Light Mode Theme Toggle Button */}
+        <button
+          type="button"
+          className="topbar-theme-btn"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? (
+            <Sun size={16} style={{ color: '#f59e0b', transition: 'color 220ms ease' }} />
+          ) : (
+            <Moon size={16} style={{ color: 'var(--text-secondary)', transition: 'color 220ms ease' }} />
+          )}
+        </button>
+
+        {/* User Profile Area + Dropdown */}
         <div ref={userMenuRef} style={{ position: 'relative' }}>
           <button
             type="button"
             onClick={() => setUserMenuOpen((prev) => !prev)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              paddingLeft: '10px',
-              paddingRight: '8px',
-              paddingTop: '6px',
-              paddingBottom: '6px',
-              border: userMenuOpen ? '1px solid var(--accent-border)' : '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              background: userMenuOpen ? 'var(--accent-surface)' : 'transparent',
-              transition: 'background 0.15s ease',
-            }}
-            aria-haspopup="menu"
+            aria-label="User profile menu"
             aria-expanded={userMenuOpen}
-            title="User menu"
+            className="topbar-profile-btn"
           >
             <div
               style={{
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--accent-surface)',
-                color: 'var(--accent-primary)',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                color: '#60a5fa',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 700,
                 fontSize: '12px',
                 flexShrink: 0,
-                border: '1px solid var(--border-subtle)',
+                transition: 'box-shadow 220ms ease',
               }}
             >
-              {user.initials}
+              {user.initials || 'TA'}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, textAlign: 'left' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, textAlign: 'left' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
                 {user.name}
               </span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                {user.role}
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                {user.role ? user.role.toLowerCase() : 'operator'}
               </span>
             </div>
             <ChevronDown
-              size={14}
+              size={13}
               style={{
                 color: 'var(--text-muted)',
                 transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
+                transition: 'transform 0.2s ease, color 220ms ease',
               }}
             />
           </button>
@@ -713,7 +651,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                 boxShadow: 'var(--shadow-lg)',
                 zIndex: 100,
                 overflow: 'hidden',
-                animation: 'modal-fade-in 0.15s ease',
               }}
             >
               {/* Profile header */}
@@ -728,7 +665,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   {user.name}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                  {user.role}
+                  {user.role || 'Administrator'}
                 </div>
               </div>
 

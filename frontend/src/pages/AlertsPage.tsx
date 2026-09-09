@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bell,
   Search,
@@ -31,11 +31,39 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
   onRefreshAlerts,
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [viewingAlert, setViewingAlert] = useState<Alert | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+
+  // Pre-seed severity/status filters from the ?filter= query param so that
+  // clicking a summary card navigates directly to the correct filtered view.
+  useEffect(() => {
+    const filter = searchParams.get('filter');
+    if (filter === 'active') {
+      setSelectedStatus('open');
+      setSelectedSeverity('all');
+    } else if (filter === 'critical') {
+      setSelectedSeverity('critical');
+      setSelectedStatus('all');
+    } else if (filter === 'investigation') {
+      setSelectedStatus('investigating');
+      setSelectedSeverity('all');
+    } else if (filter === 'resolved') {
+      setSelectedStatus('resolved');
+      setSelectedSeverity('all');
+    }
+    // When no filter param, leave dropdowns at their current value (handles
+    // navigating back to /alerts without a param — resets to 'all').
+    if (!filter) {
+      setSelectedStatus('all');
+      setSelectedSeverity('all');
+    }
+  }, [searchParams]);
 
   // Statistics
   const openCount = alerts.filter((a) => a.status === 'open').length;
@@ -70,12 +98,15 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
   // Handlers for PostgreSQL alert mutations
   const handleAcknowledge = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setActionError(null);
     try {
       setUpdatingId(id);
       await acknowledgeAlertApi(id);
+      // Refresh all data so Overview + Alerts pages stay in sync
       onRefreshAlerts();
     } catch (err) {
       console.error('Failed to acknowledge alert:', err);
+      setActionError('Failed to acknowledge alert. Please try again.');
     } finally {
       setUpdatingId(null);
     }
@@ -83,12 +114,18 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
 
   const handleResolve = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setActionError(null);
     try {
       setUpdatingId(id);
+      // Call the real backend REST API — persists status = 'resolved' in PostgreSQL.
       await resolveAlertApi(id);
+      // Refetch all fleet data (alerts, robots, predictions) so Overview and
+      // Attention Required reflect the resolution immediately — no stale cache.
       onRefreshAlerts();
     } catch (err) {
       console.error('Failed to resolve alert:', err);
+      // Do NOT mark the alert as resolved in local state — keep it unchanged.
+      setActionError('Failed to resolve alert. Please try again.');
     } finally {
       setUpdatingId(null);
     }
@@ -172,6 +209,48 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
 
   return (
     <div>
+      {/* Action error banner — shown when resolve/acknowledge fails */}
+      {actionError && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            padding: '10px 16px',
+            marginBottom: '14px',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--status-offline-bg)',
+            border: '1px solid var(--status-offline-border)',
+            color: 'var(--status-offline-fg)',
+            fontSize: '13px',
+            fontWeight: 500,
+          }}
+          role="alert"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={15} />
+            <span>{actionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              padding: '2px',
+              lineHeight: 1,
+              opacity: 0.7,
+            }}
+            aria-label="Dismiss error"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
         <div>
@@ -226,13 +305,23 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
           marginBottom: '22px',
         }}
       >
+        {/* Card 1 — Active Unresolved */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/alerts?filter=active')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/alerts?filter=active')}
+          onMouseEnter={() => setHoveredCard('active')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'active' ? { boxShadow: '0 4px 16px rgba(37,99,235,0.10)', borderColor: '#93c5fd' } : {}),
           }}
         >
           <div>
@@ -259,13 +348,23 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
           </div>
         </div>
 
+        {/* Card 2 — Critical Severity */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/alerts?filter=critical')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/alerts?filter=critical')}
+          onMouseEnter={() => setHoveredCard('critical')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'critical' ? { boxShadow: '0 4px 16px rgba(220,38,38,0.10)', borderColor: '#fca5a5' } : {}),
           }}
         >
           <div>
@@ -295,13 +394,23 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
           </div>
         </div>
 
+        {/* Card 3 — Under Investigation */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/alerts?filter=investigation')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/alerts?filter=investigation')}
+          onMouseEnter={() => setHoveredCard('investigation')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'investigation' ? { boxShadow: '0 4px 16px rgba(147,51,234,0.10)', borderColor: '#d8b4fe' } : {}),
           }}
         >
           <div>
@@ -331,13 +440,23 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
           </div>
         </div>
 
+        {/* Card 4 — Resolved Anomaly Logs */}
         <div
           className="card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/alerts?filter=resolved')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/alerts?filter=resolved')}
+          onMouseEnter={() => setHoveredCard('resolved')}
+          onMouseLeave={() => setHoveredCard(null)}
           style={{
             padding: '14px 18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.15s, border-color 0.15s',
+            ...(hoveredCard === 'resolved' ? { boxShadow: '0 4px 16px rgba(22,163,74,0.10)', borderColor: '#86efac' } : {}),
           }}
         >
           <div>

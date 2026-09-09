@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -93,6 +93,59 @@ const getMetricStatus = (metric: MetricKey, value: number) => {
   }
 };
 
+interface FleetHealthTooltipPayloadEntry {
+  name: string;
+  value: number;
+  payload: {
+    name: string;
+    value: number;
+    color: string;
+  };
+}
+
+interface FleetHealthTooltipProps {
+  active?: boolean;
+  payload?: FleetHealthTooltipPayloadEntry[];
+}
+
+const FleetHealthTooltip: React.FC<FleetHealthTooltipProps> = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div
+        style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: `1px solid ${data.payload.color || 'var(--border-subtle)'}`,
+          borderRadius: '8px',
+          padding: '5px 10px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: data.payload.color,
+            display: 'inline-block',
+          }}
+        />
+        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{data.name}:</span>
+        <span className="font-mono tabular-nums" style={{ fontWeight: 700, color: data.payload.color }}>
+          {data.value} {Number(data.value) === 1 ? 'machine' : 'machines'}
+        </span>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const Overview: React.FC<OverviewProps> = ({
   robots = [],
   productionLines = [],
@@ -109,6 +162,9 @@ export const Overview: React.FC<OverviewProps> = ({
   const [sensorReadings, setSensorReadings] = useState<SensorReading[]>([]);
   const [sensorLoading, setSensorLoading] = useState<boolean>(false);
   const [sensorError, setSensorError] = useState<string | null>(null);
+  const sensorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const SENSOR_POLL_MS = 2000;
 
   // Set initial selected robot when robots arrive
   useEffect(() => {
@@ -117,8 +173,15 @@ export const Overview: React.FC<OverviewProps> = ({
     }
   }, [robots, selectedRobotId]);
 
-  // Fetch real sensor readings for the selected robot
+  // Fetch real sensor readings for the selected robot, polling every 2 000 ms.
+  // When the selected robot changes, the previous interval is cleared automatically.
   useEffect(() => {
+    // Clear any running interval for the previous robot.
+    if (sensorIntervalRef.current !== null) {
+      clearInterval(sensorIntervalRef.current);
+      sensorIntervalRef.current = null;
+    }
+
     if (!selectedRobotId) {
       setSensorReadings([]);
       return;
@@ -128,24 +191,62 @@ export const Overview: React.FC<OverviewProps> = ({
     setSensorLoading(true);
     setSensorError(null);
 
-    fetchSensorReadings(selectedRobotId)
-      .then((data) => {
-        if (active) {
-          setSensorReadings(Array.isArray(data) ? data : []);
+    // Local mirror so the interval closure always sees current readings.
+    const readingsRef = { current: [] as SensorReading[] };
+
+    const fetchAndMerge = (forceRefresh: boolean) => {
+      fetchSensorReadings(selectedRobotId, forceRefresh)
+        .then((data) => {
+          if (!active) return;
+          const incoming = Array.isArray(data) ? data : [];
+          const prev = readingsRef.current;
+          if (prev.length === 0) {
+            // Sort ascending (oldest → newest) on first load so sensorReadings[last]
+            // is always the most-recent reading regardless of backend return order.
+            const sorted = [...incoming].sort(
+              (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+            );
+            readingsRef.current = sorted;
+            setSensorReadings(sorted);
+            setSensorLoading(false);
+            setSensorError(null);
+            return;
+          }
+          // Deduplicate by id — only add genuinely new readings.
+          const existingIds = new Set(prev.map((r) => r.id));
+          const newOnes = incoming.filter((r) => !existingIds.has(r.id));
+          if (newOnes.length === 0) return; // nothing new — graph stays unchanged
+          const merged = [...prev, ...newOnes].sort(
+            (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+          );
+          readingsRef.current = merged;
+          setSensorReadings(merged);
           setSensorLoading(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
+          setSensorError(null);
+        })
+        .catch((err: unknown) => {
+          if (!active) return;
           setSensorReadings([]);
           setSensorError(err instanceof Error ? err.message : 'Sensor telemetry unavailable');
           setSensorLoading(false);
-        }
-      });
+        });
+    };
+
+    fetchAndMerge(false);
+
+    // Start exactly one 2-second polling interval for the selected robot.
+    sensorIntervalRef.current = setInterval(() => {
+      fetchAndMerge(true); // force-refresh bypasses the short client-side cache
+    }, SENSOR_POLL_MS);
 
     return () => {
       active = false;
+      if (sensorIntervalRef.current !== null) {
+        clearInterval(sensorIntervalRef.current);
+        sensorIntervalRef.current = null;
+      }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRobotId]);
 
   // Map of production lines for quick lookup by line_id
@@ -221,16 +322,38 @@ export const Overview: React.FC<OverviewProps> = ({
     });
   }, [sensorReadings, sensorMetric]);
 
-  // Robots requiring attention
+  // Set of robot IDs that have at least one ACTIVE (unresolved) alert.
+  // Used to determine which robots genuinely need attention right now.
+  const robotIdsWithActiveAlerts = useMemo(() => {
+    const ids = new Set<string>();
+    if (Array.isArray(alerts)) {
+      for (const a of alerts) {
+        if (a.status !== 'resolved') {
+          ids.add(a.robot_id);
+        }
+      }
+    }
+    return ids;
+  }, [alerts]);
+
+  // Robots requiring attention: must have at least one active (unresolved) alert.
+  // A robot whose only alerts are all resolved is removed from this list even if
+  // its physical status column still says 'offline'/'attention'/'maintenance'.
   const attentionRobots = useMemo(() => {
     return robots.filter(
-      (r) => r.status === 'attention' || r.status === 'maintenance' || r.status === 'offline'
+      (r) =>
+        (r.status === 'attention' || r.status === 'maintenance' || r.status === 'offline') &&
+        robotIdsWithActiveAlerts.has(r.id)
     );
-  }, [robots]);
+  }, [robots, robotIdsWithActiveAlerts]);
 
-  // Recent unresolved alerts
+  // Recent alerts — only unresolved ones, newest first, capped at 5.
+  // Resolved alerts are never shown in the Overview "Recent Alerts" panel.
   const recentAlerts = useMemo(() => {
-    return Array.isArray(alerts) ? alerts.slice(0, 5) : [];
+    if (!Array.isArray(alerts)) return [];
+    return alerts
+      .filter((a) => a.status !== 'resolved')
+      .slice(0, 5);
   }, [alerts]);
 
   return (
@@ -359,7 +482,7 @@ export const Overview: React.FC<OverviewProps> = ({
           <>
             {/* 1. Total Robots */}
             <div
-              className="card clickable"
+              className="card card-interactive"
               onClick={() => onNavigateTo('/robots')}
               style={{ padding: '16px 18px', cursor: 'pointer', borderLeft: '4px solid var(--accent-primary)' }}
             >
@@ -381,7 +504,7 @@ export const Overview: React.FC<OverviewProps> = ({
 
             {/* 2. Operational */}
             <div
-              className="card clickable"
+              className="card card-interactive"
               onClick={() => onNavigateTo('/robots')}
               style={{ padding: '16px 18px', cursor: 'pointer', borderLeft: '4px solid #16a34a' }}
             >
@@ -403,7 +526,7 @@ export const Overview: React.FC<OverviewProps> = ({
 
             {/* 3. Attention */}
             <div
-              className="card clickable"
+              className="card card-interactive"
               onClick={() => onNavigateTo('/alerts')}
               style={{ padding: '16px 18px', cursor: 'pointer', borderLeft: '4px solid #d97706' }}
             >
@@ -425,7 +548,7 @@ export const Overview: React.FC<OverviewProps> = ({
 
             {/* 4. Maintenance */}
             <div
-              className="card clickable"
+              className="card card-interactive"
               onClick={() => onNavigateTo('/maintenance')}
               style={{ padding: '16px 18px', cursor: 'pointer', borderLeft: '4px solid #9333ea' }}
             >
@@ -447,7 +570,7 @@ export const Overview: React.FC<OverviewProps> = ({
 
             {/* 5. Offline */}
             <div
-              className="card clickable"
+              className="card card-interactive"
               onClick={() => onNavigateTo('/robots')}
               style={{ padding: '16px 18px', cursor: 'pointer', borderLeft: '4px solid #dc2626' }}
             >
@@ -479,7 +602,7 @@ export const Overview: React.FC<OverviewProps> = ({
         }}
       >
         {/* Fleet Health Distribution Card */}
-        <div className="card" style={{ padding: '20px 22px' }}>
+        <div className="card card-interactive" style={{ padding: '20px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
               Fleet Health
@@ -512,13 +635,10 @@ export const Overview: React.FC<OverviewProps> = ({
                       ))}
                     </Pie>
                     <RechartsTooltip
-                      contentStyle={{
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-subtle)',
-                        backgroundColor: 'var(--bg-surface)',
-                        color: 'var(--text-primary)',
-                        fontSize: '12px',
-                      }}
+                      content={<FleetHealthTooltip />}
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      wrapperStyle={{ zIndex: 40, pointerEvents: 'none' }}
+                      position={{ y: -8 }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -545,6 +665,7 @@ export const Overview: React.FC<OverviewProps> = ({
                 {fleetHealthData.map((item) => (
                   <div
                     key={item.name}
+                    className="row-interactive"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -554,6 +675,7 @@ export const Overview: React.FC<OverviewProps> = ({
                       padding: '4px 8px',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--bg-surface-secondary)',
+                      border: '1px solid transparent',
                     }}
                   >
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -580,7 +702,7 @@ export const Overview: React.FC<OverviewProps> = ({
         </div>
 
         {/* Current Fleet Condition (Latest Telemetry Readings) */}
-        <div className="card" style={{ padding: '20px 22px' }}>
+        <div className="card card-interactive" style={{ padding: '20px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
               Current Fleet Condition
@@ -623,13 +745,16 @@ export const Overview: React.FC<OverviewProps> = ({
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
               {Object.entries(METRIC_CONFIG).map(([key, config]) => {
-                const latest = sensorReadings[0];
+                // sensorReadings is sorted ascending; the last element is always
+                // the most-recent reading from the 2-second telemetry stream.
+                const latest = sensorReadings[sensorReadings.length - 1];
                 const rawVal = Number(latest[key as MetricKey] ?? 0);
                 const status = getMetricStatus(key as MetricKey, rawVal);
 
                 return (
                   <div
                     key={key}
+                    className="row-interactive"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -711,24 +836,24 @@ export const Overview: React.FC<OverviewProps> = ({
           >
             {(['temperature_c', 'vibration_mm_s', 'motor_current_a', 'pressure_bar'] as MetricKey[]).map((key) => {
               const active = sensorMetric === key;
+              const cfg = METRIC_CONFIG[key];
+              const metricClass =
+                key === 'temperature_c'
+                  ? 'telemetry-tab-btn--temp'
+                  : key === 'vibration_mm_s'
+                  ? 'telemetry-tab-btn--vib'
+                  : key === 'motor_current_a'
+                  ? 'telemetry-tab-btn--curr'
+                  : 'telemetry-tab-btn--press';
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setSensorMetric(key)}
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: 'var(--radius-xs)',
-                    fontSize: '11.5px',
-                    fontWeight: active ? 700 : 500,
-                    backgroundColor: active ? 'var(--bg-surface)' : 'transparent',
-                    color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    boxShadow: active ? 'var(--shadow-xs)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className={`telemetry-tab-btn ${metricClass} ${active ? 'active' : ''}`}
                 >
-                  {METRIC_CONFIG[key].label}
+                  <span className="telemetry-tab-dot" />
+                  <span>{cfg.label}</span>
                 </button>
               );
             })}
@@ -773,9 +898,7 @@ export const Overview: React.FC<OverviewProps> = ({
                   tickFormatter={(val: string) => {
                     const d = new Date(val);
                     if (Number.isNaN(d.getTime())) return '';
-                    const m = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                    return `${m} ${t}`;
+                    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                   }}
                 />
                 <YAxis
@@ -790,53 +913,118 @@ export const Overview: React.FC<OverviewProps> = ({
                   isAnimationActive={false}
                   wrapperStyle={{ pointerEvents: 'none', outline: 'none', zIndex: 50 }}
                   content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const item = payload[0];
-                      const val = typeof item.value === 'number'
-                        ? item.value.toFixed(METRIC_CONFIG[sensorMetric].decimals)
-                        : item.value;
-                      const timestamp = item.payload?.fullTimestamp || item.payload?.formattedTime || 'Recent';
-                      return (
+                    if (!active || !payload || payload.length === 0) return null;
+                    const point = payload[0]?.payload;
+                    if (!point) return null;
+                    const timestamp = point.fullTimestamp || point.formattedTime || 'Recent';
+                    const allMetrics: MetricKey[] = ['temperature_c', 'vibration_mm_s', 'motor_current_a', 'pressure_bar'];
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-default)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '10px 14px',
+                          boxShadow: 'var(--shadow-lg)',
+                          color: 'var(--text-primary)',
+                          fontSize: '12px',
+                          minWidth: '186px',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {/* Timestamp header */}
                         <div
                           style={{
-                            backgroundColor: 'var(--bg-surface)',
-                            border: '1px solid var(--border-default)',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '10px 14px',
-                            boxShadow: 'var(--shadow-lg)',
-                            color: 'var(--text-primary)',
-                            fontSize: '12px',
-                            minWidth: '170px',
-                            pointerEvents: 'none',
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            fontWeight: 500,
+                            marginBottom: '8px',
+                            paddingBottom: '6px',
+                            borderBottom: '1px solid var(--border-subtle)',
                           }}
                         >
-                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                            {METRIC_CONFIG[sensorMetric].label}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
-                            <span
-                              className="font-mono tabular-nums"
-                              style={{
-                                fontSize: '20px',
-                                fontWeight: 700,
-                                color: METRIC_CONFIG[sensorMetric].color,
-                              }}
-                            >
-                              {val}
-                            </span>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                              {METRIC_CONFIG[sensorMetric].unit}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '5px' }}>
-                            {timestamp}
-                          </div>
+                          {timestamp}
                         </div>
-                      );
-                    }
-                    return null;
+                        {/* All four metrics */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          {allMetrics.map((mk) => {
+                            const cfg = METRIC_CONFIG[mk];
+                            const raw = point[mk];
+                            const numVal = typeof raw === 'number' ? raw : Number(raw ?? 0);
+                            const isActive = mk === sensorMetric;
+                            return (
+                              <div
+                                key={mk}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '12px',
+                                  opacity: isActive ? 1 : 0.55,
+                                  transition: 'opacity 0.1s ease',
+                                }}
+                              >
+                                {/* Color swatch + label */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '96px' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      width: isActive ? '9px' : '7px',
+                                      height: isActive ? '9px' : '7px',
+                                      borderRadius: '50%',
+                                      backgroundColor: cfg.color,
+                                      flexShrink: 0,
+                                      transition: 'width 0.1s ease, height 0.1s ease',
+                                    }}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: isActive ? '12px' : '11.5px',
+                                      fontWeight: isActive ? 700 : 500,
+                                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {cfg.label}
+                                  </span>
+                                </div>
+                                {/* Value + unit */}
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', flexShrink: 0 }}>
+                                  <span
+                                    className="font-mono tabular-nums"
+                                    style={{
+                                      fontSize: isActive ? '14px' : '12.5px',
+                                      fontWeight: isActive ? 700 : 500,
+                                      color: isActive ? cfg.color : 'var(--text-secondary)',
+                                      transition: 'font-size 0.1s ease, color 0.1s ease',
+                                    }}
+                                  >
+                                    {numVal.toFixed(cfg.decimals)}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '10.5px',
+                                      fontWeight: 500,
+                                      color: isActive ? cfg.color : 'var(--text-muted)',
+                                      opacity: isActive ? 0.85 : 0.7,
+                                    }}
+                                  >
+                                    {cfg.unit}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
                   }}
-                  cursor={{ stroke: 'var(--accent-primary)', strokeWidth: 1.5, strokeDasharray: '3 3' }}
+                  cursor={{
+                    stroke: METRIC_CONFIG[sensorMetric].color,
+                    strokeWidth: 1.5,
+                    strokeDasharray: '4 3',
+                    strokeOpacity: 0.6,
+                  }}
                 />
                 <Line
                   type="monotone"
@@ -844,12 +1032,12 @@ export const Overview: React.FC<OverviewProps> = ({
                   name={METRIC_CONFIG[sensorMetric].label}
                   stroke={METRIC_CONFIG[sensorMetric].color}
                   strokeWidth={2.5}
-                  dot={{ r: 2.5, fill: METRIC_CONFIG[sensorMetric].color, stroke: 'var(--bg-surface)', strokeWidth: 1 }}
+                  dot={{ r: 2.5, fill: METRIC_CONFIG[sensorMetric].color, stroke: 'var(--bg-surface)', strokeWidth: 1.5 }}
                   activeDot={{
                     r: 6,
                     fill: METRIC_CONFIG[sensorMetric].color,
-                    stroke: '#ffffff',
-                    strokeWidth: 2,
+                    stroke: 'var(--bg-surface)',
+                    strokeWidth: 2.5,
                   }}
                   isAnimationActive={false}
                 />
@@ -868,7 +1056,7 @@ export const Overview: React.FC<OverviewProps> = ({
         }}
       >
         {/* Robot Status Table */}
-        <div className="card" style={{ padding: '20px 22px' }}>
+        <div className="card card-interactive" style={{ padding: '20px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -956,7 +1144,7 @@ export const Overview: React.FC<OverviewProps> = ({
         </div>
 
         {/* Recent Alerts Column */}
-        <div className="card" style={{ padding: '20px 22px' }}>
+        <div className="card card-interactive" style={{ padding: '20px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1002,6 +1190,8 @@ export const Overview: React.FC<OverviewProps> = ({
                 return (
                   <div
                     key={alert.id}
+                    className="row-interactive"
+                    onClick={() => onNavigateTo('/alerts')}
                     style={{
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
@@ -1061,7 +1251,7 @@ export const Overview: React.FC<OverviewProps> = ({
 
       {/* Row 5: Attention Required Robots */}
       {attentionRobots.length > 0 && (
-        <div className="card" style={{ padding: '20px 22px', borderLeft: '4px solid #d97706' }}>
+        <div className="card card-interactive" style={{ padding: '20px 22px', borderLeft: '4px solid #d97706' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={18} style={{ color: '#d97706' }} />
@@ -1080,6 +1270,7 @@ export const Overview: React.FC<OverviewProps> = ({
               return (
                 <div
                   key={robot.id}
+                  className="row-interactive"
                   style={{
                     padding: '12px 14px',
                     borderRadius: 'var(--radius-md)',

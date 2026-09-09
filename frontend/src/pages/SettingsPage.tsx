@@ -185,9 +185,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
   };
 
   // User display values
-  const displayName = user?.name || 'T A THANGADURAI SIVA';
-  const displayUsername = user?.username || user?.email || 'siva@robopulse.io';
-  const displayRole = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Operator';
+  const displayName = user?.name || 'User';
+  const displayUsername = user?.username || user?.email || 'user@robopulse.io';
+  const displayRole = user?.role || 'Administrator';
 
   const formattedLastCheck = lastUpdated
     ? `${lastUpdated.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`
@@ -410,44 +410,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               >
                 <button
                   type="button"
+                  className={`settings-toggle-btn ${theme === 'light' ? 'active' : ''}`}
                   onClick={() => setTheme('light')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 14px',
-                    borderRadius: 'var(--radius-xs)',
-                    fontSize: '12.5px',
-                    fontWeight: theme === 'light' ? 700 : 500,
-                    backgroundColor: theme === 'light' ? 'var(--bg-surface)' : 'transparent',
-                    color: theme === 'light' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    border: 'none',
-                    boxShadow: theme === 'light' ? 'var(--shadow-xs)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   <Sun size={15} />
                   <span>Light</span>
                 </button>
                 <button
                   type="button"
+                  className={`settings-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
                   onClick={() => setTheme('dark')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 14px',
-                    borderRadius: 'var(--radius-xs)',
-                    fontSize: '12.5px',
-                    fontWeight: theme === 'dark' ? 700 : 500,
-                    backgroundColor: theme === 'dark' ? 'var(--bg-surface)' : 'transparent',
-                    color: theme === 'dark' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    border: 'none',
-                    boxShadow: theme === 'dark' ? 'var(--shadow-xs)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   <Moon size={15} />
                   <span>Dark</span>
@@ -480,44 +452,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               >
                 <button
                   type="button"
+                  className={`settings-toggle-btn ${!sidebarCollapsed ? 'active' : ''}`}
                   onClick={() => onSetSidebarCollapsed?.(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 14px',
-                    borderRadius: 'var(--radius-xs)',
-                    fontSize: '12.5px',
-                    fontWeight: !sidebarCollapsed ? 700 : 500,
-                    backgroundColor: !sidebarCollapsed ? 'var(--bg-surface)' : 'transparent',
-                    color: !sidebarCollapsed ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    border: 'none',
-                    boxShadow: !sidebarCollapsed ? 'var(--shadow-xs)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   <PanelLeft size={15} />
                   <span>Expanded</span>
                 </button>
                 <button
                   type="button"
+                  className={`settings-toggle-btn ${sidebarCollapsed ? 'active' : ''}`}
                   onClick={() => onSetSidebarCollapsed?.(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 14px',
-                    borderRadius: 'var(--radius-xs)',
-                    fontSize: '12.5px',
-                    fontWeight: sidebarCollapsed ? 700 : 500,
-                    backgroundColor: sidebarCollapsed ? 'var(--bg-surface)' : 'transparent',
-                    color: sidebarCollapsed ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    border: 'none',
-                    boxShadow: sidebarCollapsed ? 'var(--shadow-xs)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
                 >
                   <PanelLeftClose size={15} />
                   <span>Collapsed</span>

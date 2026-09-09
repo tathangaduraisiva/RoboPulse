@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   X,
@@ -14,8 +14,9 @@ import {
 import type { Robot, RobotStatus } from '../../types/robot';
 import type { SensorReading } from '../../types/sensor';
 import type { ProductionLine } from '../../types/productionLine';
-import { fetchRobotReadings } from '../../api/robots';
+import { fetchSensorReadings } from '../../api/sensors';
 import { StatusBadge } from '../common/StatusBadge';
+import { RobotAvatar } from '../common/RobotAvatar';
 import { SensorChart } from './SensorChart';
 import { SensorSummary } from './SensorSummary';
 import { ErrorState, EmptyState } from '../common/FeedbackStates';
@@ -35,49 +36,85 @@ export const RobotDetailsModal: React.FC<RobotDetailsModalProps> = ({
   const [readings, setReadings] = useState<SensorReading[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Live polling — same pattern as Overview and LiveMonitoringPage.
+  // Clears and restarts whenever the robot changes (or modal opens/closes).
   useEffect(() => {
-    let isMounted = true;
-    if (!robot) {
-      return;
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    fetchRobotReadings(robot.id)
-      .then((data) => {
-        if (isMounted) {
-          setReadings(data);
-          setError(null);
-          setLoading(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (isMounted) {
-          const errorMessage =
-            err instanceof Error ? err.message : 'Failed to retrieve sensor readings';
-          setError(errorMessage);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [robot]);
-
-  const handleRefreshReadings = useCallback(async () => {
     if (!robot) return;
+
+    const robotId = robot.id;
+    let active = true;
     setLoading(true);
     setError(null);
-    try {
-      const data = await fetchRobotReadings(robot.id);
-      setReadings(data);
-    } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to retrieve sensor readings';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+
+    const readingsRef = { current: [] as SensorReading[] };
+
+    const fetchAndMerge = (forceRefresh: boolean) => {
+      fetchSensorReadings(robotId, forceRefresh)
+        .then((data) => {
+          if (!active) return;
+          const incoming = Array.isArray(data) ? data : [];
+          const prev = readingsRef.current;
+          if (prev.length === 0) {
+            readingsRef.current = incoming;
+            setReadings(incoming);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+          const existingIds = new Set(prev.map((r) => r.id));
+          const newOnes = incoming.filter((r) => !existingIds.has(r.id));
+          if (newOnes.length === 0) return;
+          const merged = [...prev, ...newOnes].sort(
+            (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+          );
+          readingsRef.current = merged;
+          setReadings(merged);
+          setError(null);
+          setLoading(false);
+        })
+        .catch((err: unknown) => {
+          if (!active) return;
+          setError(err instanceof Error ? err.message : 'Failed to retrieve sensor readings');
+          setLoading(false);
+        });
+    };
+
+    fetchAndMerge(false);
+    intervalRef.current = setInterval(() => fetchAndMerge(true), 2000);
+
+    return () => {
+      active = false;
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [robot?.id]);
+
+  // Manual refresh: force-fetch and let the merge logic handle deduplication.
+  const handleRefreshReadings = useCallback(() => {
+    if (!robot) return;
+    fetchSensorReadings(robot.id, true)
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        setReadings((prev) => {
+          const existingIds = new Set(prev.map((r) => r.id));
+          const newOnes = data.filter((r) => !existingIds.has(r.id));
+          if (newOnes.length === 0) return prev;
+          return [...prev, ...newOnes].sort(
+            (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+          );
+        });
+      })
+      .catch(() => {/* silent — polling will retry */});
   }, [robot]);
 
   // Handle ESC key press to close modal
@@ -141,21 +178,44 @@ export const RobotDetailsModal: React.FC<RobotDetailsModalProps> = ({
             gap: '16px',
           }}
         >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2
-                id="robot-modal-title"
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  margin: 0,
-                }}
-              >
-                {robot.name}
-              </h2>
-              <StatusBadge status={robot.status as RobotStatus} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '14px',
+                backgroundColor: 'var(--accent-surface)',
+                border: '1px solid var(--accent-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                overflow: 'hidden',
+                padding: '4px',
+              }}
+            >
+              <RobotAvatar
+                robot={robot}
+                productionLines={productionLines}
+                size={46}
+                showGlow
+              />
             </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2
+                  id="robot-modal-title"
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    margin: 0,
+                  }}
+                >
+                  {robot.name}
+                </h2>
+                <StatusBadge status={robot.status as RobotStatus} />
+              </div>
 
             <div
               style={{
@@ -193,6 +253,7 @@ export const RobotDetailsModal: React.FC<RobotDetailsModalProps> = ({
               )}
             </div>
           </div>
+        </div>
 
           {/* Actions: Refresh, Predictions, & Close */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

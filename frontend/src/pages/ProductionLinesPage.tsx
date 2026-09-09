@@ -1,8 +1,9 @@
 import React from 'react';
-import { Factory, Bot, MapPin } from 'lucide-react';
+import { Bot, MapPin } from 'lucide-react';
 import type { ProductionLine } from '../types/productionLine';
 import type { Robot } from '../types/robot';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { RobotAvatar } from '../components/common/RobotAvatar';
 import { ErrorState, EmptyState } from '../components/common/FeedbackStates';
 
 interface ProductionLinesPageProps {
@@ -96,6 +97,20 @@ export const ProductionLinesPage: React.FC<ProductionLinesPageProps> = ({
                 border: '1px solid var(--border-subtle)',
                 display: 'flex',
                 flexDirection: 'column',
+                cursor: 'pointer',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                el.style.borderColor = 'var(--border-default)';
+                el.style.boxShadow = 'var(--shadow-md)';
+                el.style.backgroundColor = 'var(--bg-surface-hover)';
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                el.style.borderColor = 'var(--border-subtle)';
+                el.style.boxShadow = '';
+                el.style.backgroundColor = '';
               }}
             >
               {/* Line Card Header */}
@@ -107,30 +122,48 @@ export const ProductionLinesPage: React.FC<ProductionLinesPageProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: '12px',
                 }}
               >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Factory size={18} style={{ color: 'var(--accent-primary)' }} />
-                    <h3
-                      style={{
-                        fontSize: '15px',
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        margin: 0,
-                      }}
-                    >
-                      {line.name}
-                    </h3>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div
                     style={{
-                      fontSize: '12px',
-                      color: 'var(--text-secondary)',
-                      marginTop: '4px',
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      flexShrink: 0,
                     }}
                   >
-                    {line.description}
+                    <RobotAvatar productionLine={line} size={38} showGlow />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h3
+                        style={{
+                          fontSize: '15px',
+                          fontWeight: 700,
+                          color: 'var(--text-primary)',
+                          margin: 0,
+                        }}
+                      >
+                        {line.name}
+                      </h3>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        marginTop: '4px',
+                      }}
+                    >
+                      {line.description}
+                    </div>
                   </div>
                 </div>
 
@@ -144,6 +177,7 @@ export const ProductionLinesPage: React.FC<ProductionLinesPageProps> = ({
                     backgroundColor: 'var(--bg-surface)',
                     border: '1px solid var(--border-default)',
                     color: 'var(--text-primary)',
+                    flexShrink: 0,
                   }}
                 >
                   {line.code}
@@ -234,40 +268,63 @@ export const ProductionLinesPage: React.FC<ProductionLinesPageProps> = ({
                           backgroundColor: 'var(--bg-surface)',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
+                          gap: '12px',
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
-                          e.currentTarget.style.borderColor = 'var(--border-default)';
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = 'var(--bg-surface-hover)';
+                          el.style.borderColor = 'var(--border-default)';
+                          el.style.boxShadow = 'var(--shadow-sm)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
-                          e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                          const el = e.currentTarget;
+                          el.style.backgroundColor = 'var(--bg-surface)';
+                          el.style.borderColor = 'var(--border-subtle)';
+                          el.style.boxShadow = '';
                         }}
                       >
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <div
                             style={{
-                              fontWeight: 600,
-                              fontSize: '13px',
-                              color: 'var(--text-primary)',
-                            }}
-                          >
-                            {robot.name}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              color: 'var(--text-muted)',
+                              width: '34px',
+                              height: '34px',
+                              borderRadius: '8px',
+                              backgroundColor: 'var(--accent-surface)',
+                              border: '1px solid var(--accent-border)',
                               display: 'flex',
-                              gap: '8px',
-                              marginTop: '2px',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '2px',
+                              flexShrink: 0,
                             }}
                           >
-                            <span>
-                              {robot.manufacturer} {robot.model}
-                            </span>
-                            <span>·</span>
-                            <span className="font-mono">SN: {robot.serial_number}</span>
+                            <RobotAvatar robot={robot} productionLine={line} size={30} showGlow />
+                          </div>
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                color: 'var(--text-primary)',
+                              }}
+                            >
+                              {robot.name}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '11px',
+                                color: 'var(--text-muted)',
+                                display: 'flex',
+                                gap: '8px',
+                                marginTop: '2px',
+                              }}
+                            >
+                              <span>
+                                {robot.manufacturer} {robot.model}
+                              </span>
+                              <span>·</span>
+                              <span className="font-mono">SN: {robot.serial_number}</span>
+                            </div>
                           </div>
                         </div>
 

@@ -3,14 +3,14 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "robopulse-dev-secret";
 
+// Extend the passport-defined Express.User interface so our custom fields
+// are compatible with both passport's augmentation and our own usage.
 declare global {
     namespace Express {
-        interface Request {
-            user?: {
-                id: string;
-                username: string;
-                role: string;
-            };
+        interface User {
+            id: string;
+            username: string;
+            role: string;
         }
     }
 }

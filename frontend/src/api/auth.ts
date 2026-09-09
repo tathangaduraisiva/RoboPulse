@@ -59,3 +59,34 @@ export async function changeUserPassword(data: ChangePasswordRequest): Promise<C
   const response = await apiClient.post<ChangePasswordResponse>('/auth/change-password', data);
   return response.data;
 }
+
+// ── Google OAuth helpers ──────────────────────────────────────────
+
+export interface GoogleStatusResponse {
+  success: boolean;
+  configured: boolean;
+}
+
+/**
+ * Ask the backend whether Google OAuth is configured.
+ * Uses a plain fetch so it never throws — returns false on any network error.
+ */
+export async function checkGoogleOAuthStatus(): Promise<boolean> {
+  try {
+    const response = await apiClient.get<GoogleStatusResponse>('/auth/google/status');
+    return response.data.configured === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The URL the browser should navigate to in order to start the Google
+ * OAuth consent flow.  The actual redirect is handled by the backend;
+ * the frontend never receives the client secret.
+ */
+export function getGoogleOAuthUrl(): string {
+  const base = (import.meta.env.VITE_API_BASE_URL as string | undefined)
+    || 'http://localhost:5000/api';
+  return `${base.replace(/\/$/, '')}/auth/google`;
+}

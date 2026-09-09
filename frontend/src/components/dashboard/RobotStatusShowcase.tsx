@@ -3,6 +3,7 @@ import { ChevronDown, ExternalLink, Cpu, MapPin, Clock } from 'lucide-react';
 import type { Robot, RobotStatus } from '../../types/robot';
 import type { ProductionLine } from '../../types/productionLine';
 import { StatusBadge } from '../common/StatusBadge';
+import { RobotAvatar } from '../common/RobotAvatar';
 
 interface RobotStatusShowcaseProps {
   robots: Robot[];
@@ -121,71 +122,28 @@ export const RobotStatusShowcase: React.FC<RobotStatusShowcaseProps> = ({
               margin: '8px 0 16px',
             }}
           >
-            {/* Robot Arm Industrial Illustration (SVG) */}
+            {/* Robot Image Showcase */}
             <div
               style={{
-                width: '105px',
-                height: '115px',
+                width: '88px',
+                height: '88px',
+                borderRadius: '16px',
+                backgroundColor: 'var(--accent-surface)',
+                border: '1px solid var(--accent-border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                padding: '6px',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.12)',
                 flexShrink: 0,
               }}
             >
-              <svg
-                width="100"
-                height="110"
-                viewBox="0 0 100 110"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Base pedestal */}
-                <ellipse cx="50" cy="98" rx="36" ry="7" fill="#cbd5e1" />
-                <rect x="26" y="86" width="48" height="12" rx="4" fill="#334155" />
-                <rect x="30" y="82" width="40" height="6" rx="2" fill="#475569" />
-                <circle cx="50" cy="85" r="3" fill="#2563eb" />
-
-                {/* Lower joint & link */}
-                <circle cx="50" cy="74" r="10" fill="#1e293b" />
-                <circle cx="50" cy="74" r="5" fill="#64748b" />
-                <path
-                  d="M45 74 L32 44 L42 40 L55 70 Z"
-                  fill="#3b82f6"
-                  stroke="#1d4ed8"
-                  strokeWidth="1.5"
-                />
-
-                {/* Elbow joint */}
-                <circle cx="37" cy="42" r="9" fill="#1e293b" />
-                <circle cx="37" cy="42" r="4" fill="#94a3b8" />
-
-                {/* Forearm link */}
-                <path
-                  d="M37 42 L68 24 L72 32 L41 50 Z"
-                  fill="#0f172a"
-                  stroke="#334155"
-                  strokeWidth="1.5"
-                />
-
-                {/* Wrist joint & end effector */}
-                <circle cx="70" cy="28" r="7" fill="#2563eb" />
-                <rect
-                  x="72"
-                  y="22"
-                  width="10"
-                  height="12"
-                  rx="2"
-                  fill="#475569"
-                  transform="rotate(25 72 22)"
-                />
-                {/* Gripper / tool */}
-                <path
-                  d="M80 19 L88 15 M80 27 L88 31"
-                  stroke="#2563eb"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <RobotAvatar
+                robot={currentRobot}
+                productionLines={productionLines}
+                size={76}
+                showGlow
+              />
             </div>
 
             {/* Quick Specs metadata */}
