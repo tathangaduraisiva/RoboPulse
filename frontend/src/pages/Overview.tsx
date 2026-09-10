@@ -1048,13 +1048,7 @@ export const Overview: React.FC<OverviewProps> = ({
       </div>
 
       {/* Row 4: Robot Status Table & Recent Alerts */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
-          gap: '20px',
-        }}
-      >
+      <div className="overview-status-alerts-grid">
         {/* Robot Status Table */}
         <div className="card card-interactive" style={{ padding: '20px 22px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
@@ -1199,11 +1193,11 @@ export const Overview: React.FC<OverviewProps> = ({
                       backgroundColor: 'var(--bg-surface-secondary)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
                         {alert.robot_name}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                         <span
                           style={{
                             padding: '2px 7px',
@@ -1233,11 +1227,11 @@ export const Overview: React.FC<OverviewProps> = ({
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px', lineHeight: 1.4 }}>
                       {alert.description}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', gap: '4px' }}>
                       <span>{formatDate(alert.detected_at)}</span>
                       <span className="font-mono">{alert.anomaly_type}</span>
                     </div>

@@ -924,6 +924,20 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Overview Row 4: Fleet Status & Recent Alerts Responsive Grid */
+.overview-status-alerts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .overview-status-alerts-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
