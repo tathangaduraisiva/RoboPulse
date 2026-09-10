@@ -315,10 +315,14 @@ function AppShell({ user, onLogout }: AppShellProps) {
     executeFleetFetch();
   }, [executeFleetFetch]);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
 
   const handleToggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => !prev);
+  }, []);
+
+  const handleCloseSidebar = useCallback(() => {
+    setSidebarCollapsed(true);
   }, []);
 
   const unresolvedAlertCount = useMemo(
@@ -328,8 +332,18 @@ function AppShell({ user, onLogout }: AppShellProps) {
 
   return (
     <div className="app-layout">
+      {/* Mobile Backdrop Overlay — Closes drawer when tapping outside on mobile/tablet */}
+      {!sidebarCollapsed && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={handleCloseSidebar}
+          aria-hidden="true"
+        />
+      )}
+
       <Sidebar
         collapsed={sidebarCollapsed}
+        onClose={handleCloseSidebar}
         currentPath={location.pathname}
         health={health}
         healthError={healthError}

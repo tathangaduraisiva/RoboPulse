@@ -281,9 +281,24 @@ h1, h2, h3, h4, h5, h6 {
   margin-left: 0 !important;
 }
 
+/* Mobile Sidebar Backdrop */
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
 @media (max-width: 1024px) {
   .app-main-wrapper {
     margin-left: 0;
+  }
+
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(2px);
+    z-index: 39;
+    animation: fadeIn 0.2s ease forwards;
   }
 }
 

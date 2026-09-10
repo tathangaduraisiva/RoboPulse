@@ -37,6 +37,7 @@ interface SidebarProps {
   user?: { name?: string } | null;
   onLogout: () => void;
   collapsed?: boolean;
+  onClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,10 +47,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
   alertCount = 0,
   user,
   onLogout,
-  collapsed = false,
+  collapsed = true,
+  onClose,
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+
+  const handleNavClick = (path: string) => {
+    navigate(path);
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      onClose?.();
+    }
+  };
+
+  const handleBrandClick = () => {
+    navigate(user ? '/overview' : '/');
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      onClose?.();
+    }
+  };
+
+  const handleLogoutClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      onClose?.();
+    }
+    onLogout();
+  };
 
   const navItems: NavItem[] = [
     {
@@ -138,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <button
         type="button"
-        onClick={() => navigate(user ? '/overview' : '/')}
+        onClick={handleBrandClick}
         style={{
           padding: '18px 20px',
           borderBottom: '1px solid var(--border-subtle)',
@@ -216,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.path}
               type="button"
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavClick(item.path)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -401,7 +424,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <button
           type="button"
-          onClick={onLogout}
+          onClick={handleLogoutClick}
           style={{
             width: '100%',
             display: 'flex',

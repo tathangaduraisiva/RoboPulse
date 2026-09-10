@@ -541,19 +541,6 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
         </button>
 
-        {/* Active Alert Badge Shortcut */}
-        {alertCount > 0 && (
-          <button
-            type="button"
-            className="topbar-alert-count-btn"
-            onClick={onNavigateAlerts}
-            aria-label={`${alertCount} active alerts`}
-          >
-            <Bell size={13} />
-            <span>{alertCount}</span>
-          </button>
-        )}
-
         {/* Manual Refresh Button */}
         <button
           type="button"
