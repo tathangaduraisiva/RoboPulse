@@ -1,4 +1,5 @@
 import { pool } from "../db/postgres.js";
+import { syncRobotStatus } from "./robot.service.js";
 /**
  * Telemetry Scheduler — 2 000 ms cadence.
  *
@@ -264,6 +265,8 @@ async function telemetryTick() {
                 `ts=${ts instanceof Date ? ts.toISOString() : ts} ` +
                 `temp=${vals.temperature_c} vib=${vals.vibration_mm_s} ` +
                 `cur=${vals.motor_current_a} pres=${vals.pressure_bar}`);
+            // Authoritatively synchronize robot status with new telemetry
+            await syncRobotStatus(s.robotId);
         }
         catch (err) {
             console.error(`[Telemetry] INSERT failed for robot ${s.robotId}:`, err instanceof Error ? err.message : err);
@@ -277,6 +280,8 @@ export function startTelemetryScheduler() {
         console.warn("[Telemetry] Scheduler already running — skipping duplicate start.");
         return;
     }
+    // Fire an immediate tick to populate live sensor readings without delay
+    void telemetryTick();
     intervalHandle = setInterval(() => { void telemetryTick(); }, CADENCE_MS);
     console.log(`✓ Telemetry scheduler started (cadence: ${CADENCE_MS} ms)`);
 }

@@ -18,10 +18,11 @@ import technicianRoutes from "./routes/technician.routes.js";
 dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
-// Allow requests from the Vite dev server and the same origin
+// Allow requests from the Vite dev server, production frontend on Render, and configured FRONTEND_URL
 const allowedOrigins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://robopulse-0ipq.onrender.com",
     process.env.FRONTEND_URL,
 ].filter(Boolean);
 app.use(cors({
@@ -91,14 +92,14 @@ async function startServer() {
     catch (error) {
         console.warn("⚠  Redis unavailable — prediction cache disabled, falling back to live queries:", error instanceof Error ? error.message : error);
     }
+    // Start the single global telemetry scheduler at 2 000 ms cadence.
+    startTelemetryScheduler();
     // Authoritatively synchronize all robot statuses across PostgreSQL & Redis on startup
     await syncAllRobotStatuses();
     console.log("✓ Fleet robot statuses synchronized");
     const server = app.listen(PORT, () => {
         console.log(`✓ RoboPulse API running on http://localhost:${PORT}`);
     });
-    // Start the single global telemetry scheduler at 2 000 ms cadence.
-    startTelemetryScheduler();
     // Graceful shutdown — stop the scheduler before the process exits.
     const shutdown = () => {
         stopTelemetryScheduler();
