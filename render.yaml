@@ -1,0 +1,11 @@
+services:
+  - type: web
+    runtime: static
+    name: robopulse-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
