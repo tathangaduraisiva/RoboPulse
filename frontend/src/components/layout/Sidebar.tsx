@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
   Flashlight,
+  X,
 } from 'lucide-react';
 import type { HealthStatus } from '../../types/api';
 import { useTheme } from '../../context/ThemeContext';
@@ -158,69 +159,93 @@ export const Sidebar: React.FC<SidebarProps> = ({
         transition: 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.22s ease',
       }}
     >
-      {/* Brand Header */}
-      <button
-        type="button"
-        onClick={handleBrandClick}
+      {/* Brand Header with Hamburger Button */}
+      <div
         style={{
-          padding: '18px 20px',
+          padding: '14px 16px',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          justifyContent: 'space-between',
+          gap: '8px',
           flexShrink: 0,
-          backgroundColor: 'transparent',
-          borderTop: 'none',
-          borderLeft: 'none',
-          borderRight: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-          width: '100%',
         }}
       >
-        <div
+        <button
+          type="button"
+          onClick={handleBrandClick}
           style={{
-            width: '36px',
-            height: '36px',
-            backgroundColor: '#ffffff',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            overflow: 'hidden',
-            padding: '2px',
-            boxShadow: 'var(--shadow-xs)',
+            gap: '10px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            padding: 0,
+            flex: 1,
+            minWidth: 0,
           }}
         >
-          <img src="/logo.svg" alt="RoboPulse logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        </div>
-        <div>
           <div
             style={{
-              fontSize: '16px',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              lineHeight: 1.2,
+              width: '34px',
+              height: '34px',
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              overflow: 'hidden',
+              padding: '2px',
+              boxShadow: 'var(--shadow-xs)',
             }}
           >
-            <span style={{ color: '#1769D1' }}>Robo</span><span style={{ color: '#F57C00' }}>Pulse</span>
+            <img src="/logo.svg" alt="RoboPulse logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
-          <div
-            style={{
-              fontSize: '9.5px',
-              color: 'var(--text-muted)',
-              fontWeight: 700,
-              letterSpacing: '0.07em',
-              textTransform: 'uppercase',
-              marginTop: '1px',
-            }}
-          >
-            FLEET TELEMETRY
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: '15px',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+              }}
+            >
+              <span style={{ color: '#1769D1' }}>Robo</span><span style={{ color: '#F57C00' }}>Pulse</span>
+            </div>
+            <div
+              style={{
+                fontSize: '9px',
+                color: 'var(--text-muted)',
+                fontWeight: 700,
+                letterSpacing: '0.07em',
+                textTransform: 'uppercase',
+                marginTop: '1px',
+              }}
+            >
+              FLEET TELEMETRY
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+
+        <button
+          type="button"
+          className="topbar-hamburger-btn"
+          onClick={onClose}
+          aria-label="Close Sidebar Navigation"
+          title="Close Sidebar Navigation"
+          style={{
+            width: '34px',
+            height: '34px',
+            flexShrink: 0,
+          }}
+        >
+          <X size={18} strokeWidth={2.2} />
+        </button>
+      </div>
 
       {/* Nav List - scrollable, flex-grows to fill space */}
       <nav

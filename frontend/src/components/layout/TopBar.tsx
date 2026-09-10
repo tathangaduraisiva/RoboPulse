@@ -47,6 +47,7 @@ interface TopBarProps {
   onLogout?: () => void;
   onNavigateSettings?: () => void;
   currentPath?: string;
+  sidebarCollapsed?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -65,6 +66,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   user = { name: 'T A THANGADURAI SIVA', role: 'operator', initials: 'TA' },
   onLogout,
   onNavigateSettings,
+  sidebarCollapsed = true,
 }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -212,15 +214,17 @@ export const TopBar: React.FC<TopBarProps> = ({
     >
       {/* Left: 1. Hamburger button (☰) + 2. RoboPulse Brand (Clickable -> /overview) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-        <button
-          type="button"
-          className="topbar-hamburger-btn"
-          onClick={onToggleSidebar}
-          aria-label="Toggle Sidebar Navigation"
-          title="Toggle Sidebar Navigation"
-        >
-          <Menu size={20} strokeWidth={2.2} />
-        </button>
+        {sidebarCollapsed && (
+          <button
+            type="button"
+            className="topbar-hamburger-btn"
+            onClick={onToggleSidebar}
+            aria-label="Toggle Sidebar Navigation"
+            title="Toggle Sidebar Navigation"
+          >
+            <Menu size={20} strokeWidth={2.2} />
+          </button>
+        )}
 
         {/* RoboPulse Logo + Brand Title */}
         <button

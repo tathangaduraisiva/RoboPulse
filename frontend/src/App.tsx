@@ -364,6 +364,7 @@ function AppShell({ user, onLogout }: AppShellProps) {
           searchTerm={globalSearch}
           onSearchChange={setGlobalSearch}
           onToggleSidebar={handleToggleSidebar}
+          sidebarCollapsed={sidebarCollapsed}
           robots={robots}
           onSelectRobot={handleSelectRobot}
           user={user}
