@@ -1,5 +1,6 @@
 import { pool } from "../db/postgres.js";
 import { syncRobotStatus } from "./robot.service.js";
+import { processTelemetryAlerts } from "./alert.service.js";
 
 /**
  * Telemetry Scheduler — 2 000 ms cadence.
@@ -227,8 +228,106 @@ function advanceChannel(
 
 // ─── Initialisation ──────────────────────────────────────────────────────────
 
+interface RobotTelemetryProfile {
+    tempMean: number;
+    vibMean: number;
+    curMean: number;
+    presMean: number;
+    tempNoise: number;
+    vibNoise: number;
+    curNoise: number;
+    presNoise: number;
+    vibMin: number;
+    vibMax: number;
+    tempMin: number;
+    tempMax: number;
+    curMin: number;
+    curMax: number;
+    presMin: number;
+    presMax: number;
+}
+
+// Controlled per-robot telemetry profiles for realistic localhost operation:
+// ROBOT-002: Moderately elevated vibration (3.65–4.05 mm/s) -> Attention / Moderate Risk
+// ROBOT-001, 003..008: Distinct healthy baselines within normal operating region -> Operational / Low Risk
+const ROBOT_PROFILES: Record<string, RobotTelemetryProfile> = {
+    "ROBOT-002": {
+        tempMean: 62.0, vibMean: 3.85, curMean: 11.5, presMean: 5.05,
+        tempNoise: 0.12, vibNoise: 0.04, curNoise: 0.15, presNoise: 0.02,
+        vibMin: 3.60, vibMax: 4.10,
+        tempMin: 60.5, tempMax: 63.5,
+        curMin: 10.5, curMax: 12.8,
+        presMin: 4.88, presMax: 5.22,
+    },
+    "ROBOT-001": {
+        tempMean: 61.2, vibMean: 2.25, curMean: 11.2, presMean: 5.02,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 2.05, vibMax: 2.50,
+        tempMin: 60.0, tempMax: 62.5,
+        curMin: 10.2, curMax: 12.2,
+        presMin: 4.90, presMax: 5.15,
+    },
+    "ROBOT-003": {
+        tempMean: 61.8, vibMean: 2.38, curMean: 11.6, presMean: 5.10,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 2.15, vibMax: 2.55,
+        tempMin: 60.5, tempMax: 63.0,
+        curMin: 10.6, curMax: 12.6,
+        presMin: 4.95, presMax: 5.25,
+    },
+    "ROBOT-004": {
+        tempMean: 60.9, vibMean: 2.18, curMean: 10.9, presMean: 4.98,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 1.98, vibMax: 2.42,
+        tempMin: 59.8, tempMax: 62.0,
+        curMin: 9.8, curMax: 11.8,
+        presMin: 4.85, presMax: 5.12,
+    },
+    "ROBOT-005": {
+        tempMean: 62.3, vibMean: 2.45, curMean: 12.1, presMean: 5.15,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 2.20, vibMax: 2.60,
+        tempMin: 61.0, tempMax: 63.5,
+        curMin: 11.0, curMax: 13.0,
+        presMin: 5.00, presMax: 5.30,
+    },
+    "ROBOT-006": {
+        tempMean: 61.5, vibMean: 2.30, curMean: 11.4, presMean: 5.05,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 2.10, vibMax: 2.52,
+        tempMin: 60.2, tempMax: 62.8,
+        curMin: 10.4, curMax: 12.4,
+        presMin: 4.92, presMax: 5.18,
+    },
+    "ROBOT-007": {
+        tempMean: 60.7, vibMean: 2.12, curMean: 10.6, presMean: 4.95,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 1.95, vibMax: 2.38,
+        tempMin: 59.5, tempMax: 61.8,
+        curMin: 9.6, curMax: 11.5,
+        presMin: 4.82, presMax: 5.10,
+    },
+    "ROBOT-008": {
+        tempMean: 62.0, vibMean: 2.40, curMean: 11.8, presMean: 5.12,
+        tempNoise: 0.10, vibNoise: 0.03, curNoise: 0.12, presNoise: 0.02,
+        vibMin: 2.18, vibMax: 2.58,
+        tempMin: 60.8, tempMax: 63.2,
+        curMin: 10.8, curMax: 12.8,
+        presMin: 4.98, presMax: 5.25,
+    },
+};
+
+function getRobotProfile(robotName: string): RobotTelemetryProfile {
+    const upper = robotName.toUpperCase();
+    for (const [key, prof] of Object.entries(ROBOT_PROFILES)) {
+        if (upper.includes(key)) return prof;
+    }
+    return ROBOT_PROFILES["ROBOT-001"];
+}
+
+// ─── Initialisation ──────────────────────────────────────────────────────────
+
 async function initStates(): Promise<void> {
-    // Latest sensor reading per robot
     const latestRes = await pool.query<{
         robot_id:        string;
         robot_name:      string;
@@ -258,7 +357,6 @@ async function initStates(): Promise<void> {
         WHERE rn = 1;
     `);
 
-    // All robots (including those with no readings yet)
     const allRobots = await pool.query<{ robot_id: string; robot_name: string }>(
         `SELECT id AS robot_id, name AS robot_name FROM robots ORDER BY name;`
     );
@@ -266,31 +364,24 @@ async function initStates(): Promise<void> {
     const latestMap = new Map(latestRes.rows.map((r) => [r.robot_id, r]));
 
     for (const { robot_id, robot_name } of allRobots.rows) {
-        // Deterministic per-robot baseline offset from name hash
-        // (stable across restarts; small spread so all robots stay in realistic range)
-        let hash = 5381;
-        for (let i = 0; i < robot_name.length; i++) {
-            hash = ((hash << 5) + hash) ^ robot_name.charCodeAt(i);
-            hash = hash & 0xffff;
-        }
+        const profile = getRobotProfile(robot_name);
         const offsets: BaselineOffsets = {
-            temp: ((hash % 61) - 30) * 0.1,   // ± 3 °C
-            vib:  ((hash % 41) - 20) * 0.02,  // ± 0.4 mm/s
-            cur:  ((hash % 51) - 25) * 0.1,   // ± 2.5 A
-            pres: ((hash % 31) - 15) * 0.02,  // ± 0.3 bar
+            temp: 0,
+            vib: 0,
+            cur: 0,
+            pres: 0,
         };
 
         const latest = latestMap.get(robot_id);
-        const spec   = CHANNEL_SPEC;
 
         states.set(robot_id, {
             robotId:     robot_id,
             robotName:   robot_name,
             offsets,
-            temp:  latest ? Number(latest.temperature_c)   : spec.temp.mean + offsets.temp,
-            vib:   latest ? Number(latest.vibration_mm_s)  : spec.vib.mean  + offsets.vib,
-            cur:   latest ? Number(latest.motor_current_a) : spec.cur.mean  + offsets.cur,
-            pres:  latest ? Number(latest.pressure_bar)    : spec.pres.mean + offsets.pres,
+            temp:  latest ? Number(latest.temperature_c)   : profile.tempMean,
+            vib:   latest ? Number(latest.vibration_mm_s)  : profile.vibMean,
+            cur:   latest ? Number(latest.motor_current_a) : profile.curMean,
+            pres:  latest ? Number(latest.pressure_bar)    : profile.presMean,
             tempAnomaly: null,
             vibAnomaly:  null,
             curAnomaly:  null,
@@ -310,63 +401,20 @@ function computeNextValues(s: RobotState): {
     motor_current_a: number;
     pressure_bar:    number;
 } {
-    const sp = CHANNEL_SPEC;
+    const prof = getRobotProfile(s.robotName);
 
-    // Effective means = fleet mean ± per-robot offset
-    const tempMean = sp.temp.mean + s.offsets.temp;
-    const vibMean  = sp.vib.mean  + s.offsets.vib;
-    const curMean  = sp.cur.mean  + s.offsets.cur;
-    const presMean = sp.pres.mean + s.offsets.pres;
+    // Natural random walk with mean-reversion bounded within profile envelope
+    const stepChannel = (prev: number, mean: number, noiseScale: number, minVal: number, maxVal: number, rev: number = 0.08) => {
+        const noise = triangleNoise(noiseScale);
+        const reversion = (mean - prev) * rev;
+        const next = prev + noise + reversion;
+        return Math.max(minVal, Math.min(maxVal, parseFloat(next.toFixed(2))));
+    };
 
-    // ── Attempt to start new anomaly events (only when no event is active) ───
-    if (s.tempAnomaly === null) {
-        s.tempAnomaly = maybeStartAnomaly(s.temp, tempMean, sp.temp, sp.temp.hardMin, sp.temp.hardMax);
-    }
-    if (s.vibAnomaly === null) {
-        s.vibAnomaly = maybeStartAnomaly(s.vib, vibMean, sp.vib, sp.vib.hardMin, sp.vib.hardMax);
-    }
-    if (s.curAnomaly === null) {
-        s.curAnomaly = maybeStartAnomaly(s.cur, curMean, sp.cur, sp.cur.hardMin, sp.cur.hardMax);
-    }
-    if (s.presAnomaly === null) {
-        s.presAnomaly = maybeStartAnomaly(s.pres, presMean, sp.pres, sp.pres.hardMin, sp.pres.hardMax);
-    }
-
-    // ── Loose partial correlation: if a current anomaly fires, co-excite temp ─
-    // (models: high motor load → slightly elevated temperature)
-    // This is probabilistic and partial — not perfectly synchronised.
-    if (s.curAnomaly !== null && !s.curAnomaly.recovering
-        && s.tempAnomaly === null && Math.random() < 0.35) {
-        const sign = s.curAnomaly.target > curMean ? 1 : -1;
-        const coTarget = Math.max(
-            sp.temp.hardMin,
-            Math.min(sp.temp.hardMax, tempMean + sign * sp.temp.anomalyMod * 0.5)
-        );
-        s.tempAnomaly = {
-            target:    coTarget,
-            pushTicks: 2 + Math.floor(Math.random() * 3),
-            pushed:    0,
-            recovering: false,
-        };
-    }
-
-    // ── Advance each channel ─────────────────────────────────────────────────
-    const newTemp = advanceChannel(
-        s.temp, tempMean, sp.temp, sp.temp.hardMin, sp.temp.hardMax,
-        s.tempAnomaly, (e) => { s.tempAnomaly = e; }
-    );
-    const newVib = advanceChannel(
-        s.vib, vibMean, sp.vib, sp.vib.hardMin, sp.vib.hardMax,
-        s.vibAnomaly, (e) => { s.vibAnomaly = e; }
-    );
-    const newCur = advanceChannel(
-        s.cur, curMean, sp.cur, sp.cur.hardMin, sp.cur.hardMax,
-        s.curAnomaly, (e) => { s.curAnomaly = e; }
-    );
-    const newPres = advanceChannel(
-        s.pres, presMean, sp.pres, sp.pres.hardMin, sp.pres.hardMax,
-        s.presAnomaly, (e) => { s.presAnomaly = e; }
-    );
+    const newTemp = stepChannel(s.temp, prof.tempMean, prof.tempNoise, prof.tempMin, prof.tempMax, 0.06);
+    const newVib  = stepChannel(s.vib,  prof.vibMean,  prof.vibNoise,  prof.vibMin,  prof.vibMax,  0.08);
+    const newCur  = stepChannel(s.cur,  prof.curMean,  prof.curNoise,  prof.curMin,  prof.curMax,  0.06);
+    const newPres = stepChannel(s.pres, prof.presMean, prof.presNoise, prof.presMin, prof.presMax, 0.08);
 
     // Persist
     s.temp  = newTemp;
@@ -414,11 +462,14 @@ async function telemetryTick(): Promise<void> {
                 `cur=${vals.motor_current_a} pres=${vals.pressure_bar}`
             );
 
-            // Authoritatively synchronize robot status with new telemetry
+            // 1. Process real telemetry threshold infractions & create/update active alerts
+            await processTelemetryAlerts(s.robotId, s.robotName, vals);
+
+            // 2. Authoritatively synchronize robot status with new telemetry and alerts
             await syncRobotStatus(s.robotId);
         } catch (err) {
             console.error(
-                `[Telemetry] INSERT failed for robot ${s.robotId}:`,
+                `[Telemetry] Tick failed for robot ${s.robotId}:`,
                 err instanceof Error ? err.message : err
             );
         }

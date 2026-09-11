@@ -6,7 +6,10 @@ export async function getAllTechnicians() {
         ORDER BY t.name ASC;
     `;
     const result = await pool.query(query);
-    const technicians = result.rows;
+    const technicians = (result.rows || []);
+    if (technicians.length === 0) {
+        return [];
+    }
     await Promise.all(technicians.map(async (tech) => {
         const assignments = await pool.query(`
                 SELECT
@@ -23,7 +26,7 @@ export async function getAllTechnicians() {
                 WHERE tra.technician_id = $1 AND tra.unassigned_at IS NULL
                 ORDER BY r.name ASC;
                 `, [tech.id]);
-        tech.assigned_robots = assignments.rows;
+        tech.assigned_robots = assignments.rows || [];
     }));
     return technicians;
 }

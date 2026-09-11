@@ -58,23 +58,27 @@ function deriveConditionCategory(
     vibScore: number,
     tempScore: number,
     currentScore: number,
-    errScore: number
+    pressScore: number = 0,
+    errScore: number = 0
 ): { category: string; signalBucket: string } {
-    if (vibScore >= 50 && tempScore >= 50) {
+    if (vibScore >= 35 && tempScore >= 35) {
         return { category: "multi_sensor_anomaly", signalBucket: "vib_temp" };
     }
-    if (vibScore >= 50) {
-        // Bucket vibration into 3 severity bands so small noise does not change the fingerprint
-        const band = vibScore >= 80 ? "severe" : vibScore >= 65 ? "high" : "elevated";
+    if (vibScore >= 35) {
+        const band = vibScore >= 75 ? "severe" : vibScore >= 55 ? "high" : "elevated";
         return { category: "high_vibration", signalBucket: `vib_${band}` };
     }
-    if (tempScore >= 50) {
-        const band = tempScore >= 80 ? "severe" : tempScore >= 65 ? "high" : "elevated";
+    if (tempScore >= 35) {
+        const band = tempScore >= 75 ? "severe" : tempScore >= 55 ? "high" : "elevated";
         return { category: "thermal_stress", signalBucket: `temp_${band}` };
     }
-    if (currentScore >= 50) {
-        const band = currentScore >= 80 ? "severe" : currentScore >= 65 ? "high" : "elevated";
+    if (currentScore >= 35) {
+        const band = currentScore >= 75 ? "severe" : currentScore >= 55 ? "high" : "elevated";
         return { category: "abnormal_motor_current", signalBucket: `curr_${band}` };
+    }
+    if (pressScore >= 35) {
+        const band = pressScore >= 75 ? "severe" : pressScore >= 55 ? "high" : "elevated";
+        return { category: "pneumatic_pressure_variance", signalBucket: `press_${band}` };
     }
     if (errScore >= 40) {
         return { category: "multi_sensor_anomaly", signalBucket: "alerts_elevated" };
@@ -391,11 +395,24 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
     currentScore += runtimeAging;
     currentScore = Math.max(2, Math.min(98, Math.round(currentScore)));
 
-    // D. Error / Alert Score
+    // D. Pressure Score (Pneumatic Standard: 4.0 - 7.0 bar nominal)
+    let pressScore = 0;
+    if (pressStats.latest >= 4.6 && pressStats.latest <= 6.4) {
+        pressScore = Math.abs(pressStats.latest - 5.0) * 8;
+    } else if (pressStats.latest >= 4.0 && pressStats.latest <= 7.0) {
+        pressScore = 18 + Math.abs(pressStats.latest - 5.0) * 16;
+    } else if (pressStats.latest <= 2.5 || pressStats.latest >= 8.0) {
+        pressScore = 75 + Math.min(20, Math.abs(pressStats.latest - 5.0) * 6);
+    } else {
+        pressScore = 55 + Math.min(22, Math.abs(pressStats.latest - 5.0) * 8);
+    }
+    pressScore = Math.max(2, Math.min(98, Math.round(pressScore)));
+
+    // E. Error / Alert Score
     let errScore = Math.min(95, activeAlertsCount * 18 + criticalAlertsCount * 25);
     if (errScore === 0) errScore = 4;
 
-    // E. Maintenance Urgency Score
+    // F. Maintenance Urgency Score
     let maintScore = 10;
     if (overdueCount > 0) {
         maintScore = 65;
@@ -407,21 +424,23 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
 
     // 9. Multi-Sensor Correlation & Composite Risk Calculation
     const weightedBase =
-        0.35 * vibScore +
-        0.30 * tempScore +
+        0.30 * vibScore +
+        0.25 * tempScore +
         0.20 * currentScore +
-        0.10 * errScore +
-        0.05 * maintScore;
+        0.15 * pressScore +
+        0.06 * errScore +
+        0.04 * maintScore;
 
     let elevatedChannels = 0;
     if (vibScore >= 35) elevatedChannels++;
     if (tempScore >= 35) elevatedChannels++;
     if (currentScore >= 35) elevatedChannels++;
+    if (pressScore >= 35) elevatedChannels++;
     if (errScore >= 35) elevatedChannels++;
 
     let correlationBoost = 0;
     if (elevatedChannels >= 2) {
-        correlationBoost = Math.min(15, (elevatedChannels - 1) * 6);
+        correlationBoost = Math.min(15, (elevatedChannels - 1) * 5);
     }
 
     let rawRisk = Math.round(weightedBase + correlationBoost);
@@ -442,18 +461,12 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
 
     // 11. Condition Fingerprinting
     const { category: conditionCategory, signalBucket } = deriveConditionCategory(
-        vibScore, tempScore, currentScore, errScore
+        vibScore, tempScore, currentScore, pressScore, errScore
     );
     const conditionFingerprint = buildConditionFingerprint(robotId, conditionCategory, signalBucket);
     const isAbnormalCondition = conditionCategory !== "normal";
 
     // 12. Handled-Condition Suppression Logic
-    //
-    //  If there is an active (non-expired) handled condition for this robot:
-    //   - Same fingerprint: suppress — return "handled" / "monitoring" based on risk
-    //   - Different fingerprint but still abnormal: allow — this is a new_issue
-    //   - Normal readings: mark as monitoring regardless
-    //
     let conditionStatus: PredictionRecord["condition_status"] = "active";
     let isNewCondition = true;
 
@@ -461,15 +474,10 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
         const sameFingerprint = handledCondition.fingerprint === conditionFingerprint;
 
         if (!isAbnormalCondition) {
-            // Telemetry is back to normal — post-maintenance monitoring
             conditionStatus = "monitoring";
             isNewCondition = false;
         } else if (sameFingerprint) {
-            // Same condition fingerprint as the previously handled one.
-            // Determine whether the risk has genuinely worsened vs. stale historical data.
-
             if (lastMaintAt) {
-                // Check how many post-maintenance readings contributed to this score
                 const postCount = await pool.query(
                     `SELECT COUNT(*) as cnt FROM sensor_readings
                      WHERE robot_id = $1 AND recorded_at > $2;`,
@@ -478,36 +486,25 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
                 const postMaintCount = Number(postCount.rows[0]?.cnt) || 0;
 
                 if (postMaintCount < 5) {
-                    // Insufficient post-maintenance evidence — this is likely the old condition
-                    // re-surfacing from historical telemetry. Suppress it.
                     conditionStatus = "handled";
                     isNewCondition = false;
-
-                    // Downgrade risk tier to avoid "false critical" — real risk from
-                    // post-maintenance data will be reevaluated as readings accumulate
                     if (riskLevel === "critical") riskLevel = "high";
-                    rawRisk = Math.min(rawRisk, 72); // Stay below critical threshold
+                    rawRisk = Math.min(rawRisk, 72);
                 } else {
-                    // Enough post-maintenance data supports the same condition —
-                    // this is a genuine recurrence
                     conditionStatus = "recurring";
                     isNewCondition = true;
                 }
             } else {
-                // No tracked maintenance completion, but a handled condition exists —
-                // treat as handled to be safe
                 conditionStatus = "handled";
                 isNewCondition = false;
                 if (riskLevel === "critical") riskLevel = "high";
                 rawRisk = Math.min(rawRisk, 72);
             }
         } else {
-            // Different fingerprint AND abnormal — genuinely new issue
             conditionStatus = "new_issue";
             isNewCondition = true;
         }
     } else {
-        // No active suppression — treat normally
         conditionStatus = isAbnormalCondition ? "active" : "monitoring";
         isNewCondition = isAbnormalCondition && (riskLevel === "high" || riskLevel === "critical");
     }
@@ -515,22 +512,24 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
     // Recalculate healthScore after possible rawRisk downgrade
     const finalHealthScore = 100 - rawRisk;
 
-    // 13. Explainable Diagnosis
+    // 13. Explainable Diagnosis (Robot-Specific & Channel-Aware)
     let primaryReason = "";
-    if (vibScore >= 50 && tempScore >= 50) {
-        primaryReason = `Correlated vibration (${vibStats.latest.toFixed(2)} mm/s) and thermal (${tempStats.latest.toFixed(1)} °C) elevation`;
-    } else if (vibScore >= 50) {
-        primaryReason = `Elevated vibration amplitude (${vibStats.latest.toFixed(2)} mm/s) exceeding kinematic baseline`;
-    } else if (tempScore >= 50) {
-        primaryReason = `Elevated thermal profile (${tempStats.latest.toFixed(1)} °C) detected in drive servomotor`;
-    } else if (currentScore >= 50) {
-        primaryReason = `Elevated motor current draw (${currStats.latest.toFixed(1)} A) under extended operating load`;
+    if (vibScore >= 35 && tempScore >= 35) {
+        primaryReason = `Correlated mechanical vibration (${vibStats.latest.toFixed(2)} mm/s) and thermal rise (${tempStats.latest.toFixed(1)} °C) detected in ${robot.model}`;
+    } else if (vibScore >= 35) {
+        primaryReason = `Elevated vibration amplitude (${vibStats.latest.toFixed(2)} mm/s) exceeding kinematic baseline (2.8 mm/s)`;
+    } else if (tempScore >= 35) {
+        primaryReason = `Elevated motor thermal profile (${tempStats.latest.toFixed(1)} °C) exceeding recommended operating limit`;
+    } else if (currentScore >= 35) {
+        primaryReason = `Elevated motor current draw (${currStats.latest.toFixed(1)} A) under operating cycle load`;
+    } else if (pressScore >= 35) {
+        primaryReason = `Abnormal pneumatic pressure (${pressStats.latest.toFixed(2)} bar) outside nominal tolerance (4.0–7.0 bar)`;
     } else if (errScore >= 40) {
-        primaryReason = `Persistent unresolved telemetry alerts requiring diagnostic clearance`;
+        primaryReason = `Persistent active telemetry alert (${activeAlertsCount} unresolved incident${activeAlertsCount > 1 ? 's' : ''})`;
     } else if (rawRisk >= 25) {
-        primaryReason = `Moderate telemetry variance (${vibStats.latest.toFixed(2)} mm/s, ${tempStats.latest.toFixed(1)} °C) within acceptable bounds`;
+        primaryReason = `Moderate operational telemetry variation (temp ${tempStats.latest.toFixed(1)} °C, vib ${vibStats.latest.toFixed(2)} mm/s, press ${pressStats.latest.toFixed(2)} bar)`;
     } else {
-        primaryReason = `Stable operating profile across all telemetry channels`;
+        primaryReason = `Nominal operating profile (${tempStats.latest.toFixed(1)} °C, ${vibStats.latest.toFixed(2)} mm/s, ${currStats.latest.toFixed(1)} A, ${pressStats.latest.toFixed(2)} bar) on ${robot.line_name}`;
     }
 
     // Append handled context if suppressing
@@ -545,35 +544,45 @@ export async function evaluateRobotTelemetry(robotId: string): Promise<Predictio
     // 14. Prescriptive Action Recommendation
     let recommendation = "";
     if (conditionStatus === "handled" || conditionStatus === "monitoring") {
-        recommendation = "Post-maintenance monitoring active. Continue observing telemetry trends.";
-    } else if (vibScore >= 50 && tempScore >= 50) {
-        recommendation = "Schedule immediate multi-point mechanical inspection and verify gearbox lubrication.";
-    } else if (vibScore >= 50) {
-        recommendation = "Inspect mechanical bearings, couplings, and joint alignment within 7 operating days.";
-    } else if (tempScore >= 50) {
-        recommendation = "Inspect cooling airflow, thermal dissipation pathways, and motor drive housing.";
-    } else if (currentScore >= 50) {
-        recommendation = "Check joint friction resistance, payload balance, and inverter drive parameters.";
+        recommendation = `Post-maintenance monitoring active for ${robot.name}. Observe next 20 telemetry cycles.`;
+    } else if (vibScore >= 35 && tempScore >= 35) {
+        recommendation = `Schedule priority mechanical inspection for ${robot.name}: inspect joint bearings and verify gearbox lubrication.`;
+    } else if (vibScore >= 35) {
+        recommendation = `Inspect mechanical bearings, harmonic drive backlash, and joint axis alignment on ${robot.name}.`;
+    } else if (tempScore >= 35) {
+        recommendation = `Inspect servomotor cooling airflow, thermal dissipation pathways, and drive heat sink.`;
+    } else if (currentScore >= 35) {
+        recommendation = `Check joint mechanical friction resistance, verify payload torque limits, and tune inverter parameters.`;
+    } else if (pressScore >= 35) {
+        recommendation = `Inspect pneumatic regulator line, check valve seals for pressure leakage, and calibrate pressure sensor.`;
     } else if (overdueCount > 0) {
-        recommendation = "Complete overdue preventative maintenance service before high-duty production cycles.";
+        recommendation = `Complete overdue preventive maintenance service on ${robot.name} before high-duty production shifts.`;
     } else if (rawRisk >= 25) {
-        recommendation = "Continue monitoring telemetry trends; verify lubrication on next scheduled cycle.";
+        recommendation = `Continue monitoring sensor trends; verify axis lubrication on next scheduled line maintenance.`;
     } else {
-        recommendation = "Continue routine continuous monitoring; system operating within nominal tolerances.";
+        recommendation = `Maintain standard continuous monitoring; system operating within nominal manufacturer tolerances.`;
     }
 
     // 15. 24-Hour What-If Projection
     let whatIf24h = "";
     if (conditionStatus === "handled" || conditionStatus === "monitoring") {
-        whatIf24h = `Post-maintenance monitoring phase. Telemetry will be re-evaluated as new readings accumulate.`;
+        whatIf24h = `Post-maintenance monitoring phase for ${robot.name}. Telemetry trend will be re-evaluated as new sensor readings accumulate.`;
     } else if (riskLevel === "critical") {
-        whatIf24h = `Without intervention, sustained vibration (${vibStats.latest.toFixed(2)} mm/s) and thermal stress could accelerate bearing wear and cause unscheduled downtime.`;
+        whatIf24h = `Without intervention within 24 hours, critical telemetry excursions (${vibStats.latest.toFixed(2)} mm/s / ${tempStats.latest.toFixed(1)} °C) risk severe mechanical wear, motor trip, or unexpected line stoppage.`;
     } else if (riskLevel === "high") {
-        whatIf24h = `Potential continued degradation if current elevated vibration and temperature trends persist over upcoming operating shifts.`;
+        if (pressScore >= 35) {
+            whatIf24h = `Unresolved pneumatic pressure variance (${pressStats.latest.toFixed(2)} bar) may cause end-effector gripping failure or pneumatic seal rupture within 24 hours.`;
+        } else if (vibScore >= 35) {
+            whatIf24h = `Persistent kinematic vibration (${vibStats.latest.toFixed(2)} mm/s) will accelerate bearing fatigue and risk positional accuracy loss over upcoming shifts.`;
+        } else if (tempScore >= 35) {
+            whatIf24h = `Continued thermal stress (${tempStats.latest.toFixed(1)} °C) risks winding insulation breakdown and thermal safety cutoff under peak cycle duty.`;
+        } else {
+            whatIf24h = `Sustained high motor current draw (${currStats.latest.toFixed(1)} A) risks inverter thermal overload and premature component degradation within 24 hours.`;
+        }
     } else if (riskLevel === "moderate") {
-        whatIf24h = `Telemetry indicates moderate stress; risk may escalate if operational duty cycle increases without scheduled inspection.`;
+        whatIf24h = `Telemetry indicates moderate stress (${vibStats.latest.toFixed(2)} mm/s, ${tempStats.latest.toFixed(1)} °C); risk may escalate if production cycle rate increases without preventative inspection.`;
     } else {
-        whatIf24h = `Operating well within nominal tolerances; expected to maintain stable performance over the next 24 operating hours.`;
+        whatIf24h = `Operating stably within nominal limits (${tempStats.latest.toFixed(1)} °C / ${vibStats.latest.toFixed(2)} mm/s); expected to maintain full throughput reliability over the next 24 operating hours.`;
     }
 
     const confidence = readings.length >= 50 ? "High (168+ Telemetry Records Evaluated)" : "Moderate (Recent Telemetry Window Evaluated)";
@@ -801,10 +810,12 @@ export async function getCurrentConditionFingerprint(robotId: string): Promise<{
         const temps = rows.map((r: RawSensorReading) => Number(r.temperature_c) || 0);
         const vibs = rows.map((r: RawSensorReading) => Number(r.vibration_mm_s) || 0);
         const currs = rows.map((r: RawSensorReading) => Number(r.motor_current_a) || 0);
+        const presses = rows.map((r: RawSensorReading) => Number(r.pressure_bar) || 0);
 
         const tempStats = calculateSeriesStats(temps);
         const vibStats = calculateSeriesStats(vibs);
         const currStats = calculateSeriesStats(currs);
+        const pressStats = calculateSeriesStats(presses);
 
         let vibScore = 0;
         if (vibStats.latest <= 2.8) vibScore = (vibStats.latest / 2.8) * 18;
@@ -824,7 +835,19 @@ export async function getCurrentConditionFingerprint(robotId: string): Promise<{
         else currentScore = 63 + Math.min(32, ((currStats.latest - 18) / 10) * 32);
         currentScore = Math.round(Math.max(2, Math.min(98, currentScore)));
 
-        const { category, signalBucket } = deriveConditionCategory(vibScore, tempScore, currentScore, 0);
+        let pressScore = 0;
+        if (pressStats.latest >= 4.6 && pressStats.latest <= 6.4) {
+            pressScore = Math.abs(pressStats.latest - 5.0) * 8;
+        } else if (pressStats.latest >= 4.0 && pressStats.latest <= 7.0) {
+            pressScore = 18 + Math.abs(pressStats.latest - 5.0) * 16;
+        } else if (pressStats.latest <= 2.5 || pressStats.latest >= 8.0) {
+            pressScore = 75 + Math.min(20, Math.abs(pressStats.latest - 5.0) * 6);
+        } else {
+            pressScore = 55 + Math.min(22, Math.abs(pressStats.latest - 5.0) * 8);
+        }
+        pressScore = Math.round(Math.max(2, Math.min(98, pressScore)));
+
+        const { category, signalBucket } = deriveConditionCategory(vibScore, tempScore, currentScore, pressScore, 0);
         const fingerprint = buildConditionFingerprint(robotId, category, signalBucket);
 
         const latestRow = res.rows[0]; // res.rows is DESC order

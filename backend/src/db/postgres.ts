@@ -64,6 +64,41 @@ export async function verifyDatabaseSchema(): Promise<void> {
             console.warn("   Run: npm run db:migrate\n");
         }
 
+        // Ensure technicians and assignments tables exist (from migration 002)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS technicians (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(120) NOT NULL,
+                employee_code VARCHAR(40) NOT NULL UNIQUE,
+                specialization VARCHAR(80) NOT NULL DEFAULT 'general',
+                phone VARCHAR(40),
+                email VARCHAR(120),
+                status VARCHAR(30) NOT NULL DEFAULT 'available',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT technicians_status_check
+                    CHECK (status IN ('available', 'assigned', 'offline'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_technicians_status ON technicians(status);
+            CREATE INDEX IF NOT EXISTS idx_technicians_employee_code ON technicians(employee_code);
+
+            CREATE TABLE IF NOT EXISTS technician_robot_assignments (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                technician_id UUID NOT NULL
+                    REFERENCES technicians(id)
+                    ON DELETE CASCADE,
+                robot_id UUID NOT NULL
+                    REFERENCES robots(id)
+                    ON DELETE CASCADE,
+                assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                unassigned_at TIMESTAMPTZ,
+                CONSTRAINT unique_active_assignment
+                    UNIQUE (technician_id, robot_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_tra_technician ON technician_robot_assignments(technician_id);
+            CREATE INDEX IF NOT EXISTS idx_tra_robot ON technician_robot_assignments(robot_id);
+        `);
+
         // Ensure required unresolved alerts exist in PostgreSQL
         await ensureRequiredAlerts(client);
 

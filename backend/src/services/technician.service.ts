@@ -38,7 +38,11 @@ export async function getAllTechnicians(): Promise<TechnicianRecord[]> {
     `;
 
     const result = await pool.query(query);
-    const technicians = result.rows as TechnicianRecord[];
+    const technicians = (result.rows || []) as TechnicianRecord[];
+
+    if (technicians.length === 0) {
+        return [];
+    }
 
     await Promise.all(
         technicians.map(async (tech) => {
@@ -61,7 +65,7 @@ export async function getAllTechnicians(): Promise<TechnicianRecord[]> {
                 [tech.id]
             );
 
-            tech.assigned_robots = assignments.rows;
+            tech.assigned_robots = assignments.rows || [];
         })
     );
 
