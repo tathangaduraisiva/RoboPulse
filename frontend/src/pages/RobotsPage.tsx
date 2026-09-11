@@ -270,7 +270,20 @@ export const RobotsPage: React.FC<RobotsPageProps> = ({
           </div>
         </div>
 
-        <div className="card fleet-stat-card fleet-stat-card--attention">
+        <div
+          className="card fleet-stat-card fleet-stat-card--attention"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/alerts?filter=active')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate('/alerts?filter=active');
+            }
+          }}
+          style={{ cursor: 'pointer' }}
+          aria-label={`View ${stats.attention} robots needing attention in Alerts`}
+        >
           <div>
             <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Needs Attention

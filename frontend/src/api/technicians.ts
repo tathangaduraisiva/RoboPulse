@@ -24,7 +24,7 @@ export interface TechnicianApiRecord {
 
 export async function fetchTechnicians(): Promise<TechnicianApiRecord[]> {
   const response = await apiClient.get<ApiResponse<TechnicianApiRecord[]>>('/technicians');
-  return response.data.data;
+  return Array.isArray(response.data?.data) ? response.data.data : [];
 }
 
 export async function fetchTechnicianById(id: string): Promise<TechnicianApiRecord> {

@@ -138,10 +138,13 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
     try {
       setLoading(true);
       const records = await fetchTechnicians();
-      setRawRecords(records);
-      setTechnicians(records.map(normalizeTechnician));
-    } catch {
+      const safeRecords = Array.isArray(records) ? records : [];
+      setRawRecords(safeRecords);
+      setTechnicians(safeRecords.map(normalizeTechnician));
+    } catch (err) {
+      console.error('Failed to load technicians:', err);
       showToast('error', 'Unable to load technicians.');
+      setRawRecords([]);
       setTechnicians([]);
     } finally {
       setLoading(false);
@@ -604,7 +607,9 @@ export const TechniciansPage: React.FC<TechniciansPageProps> = ({ robots = [] })
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    No technicians match the current filters.
+                    {technicians.length === 0
+                      ? 'No technicians found in the roster. Click "Add Technician" to register a specialist.'
+                      : 'No technicians match the current filters.'}
                   </td>
                 </tr>
               ) : (

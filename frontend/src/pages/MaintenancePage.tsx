@@ -105,7 +105,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({
 
       return matchesSearch && matchesType;
     });
-  }, [tab, upcomingList, overdueList, completedList, search, selectedType]);
+  }, [tab, upcomingList, overdueList, completedList, maintenance, search, selectedType]);
 
   const handleComplete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

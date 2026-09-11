@@ -45,7 +45,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
   useEffect(() => {
     const filter = searchParams.get('filter');
     if (filter === 'active') {
-      setSelectedStatus('open');
+      setSelectedStatus('active');
       setSelectedSeverity('all');
     } else if (filter === 'critical') {
       setSelectedSeverity('critical');
@@ -87,9 +87,10 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
       const matchesSeverity =
         selectedSeverity === 'all' || alert.severity === selectedSeverity;
 
-      // Status
+      // Status (active matches all unresolved: open or investigating)
       const matchesStatus =
-        selectedStatus === 'all' || alert.status === selectedStatus;
+        selectedStatus === 'all' ||
+        (selectedStatus === 'active' ? alert.status !== 'resolved' : alert.status === selectedStatus);
 
       return matchesSearch && matchesSeverity && matchesStatus;
     });
@@ -537,6 +538,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
             aria-label="Filter by Status"
           >
             <option value="all">All Statuses</option>
+            <option value="active">Active Unresolved</option>
             <option value="open">Open</option>
             <option value="investigating">Investigating</option>
             <option value="resolved">Resolved</option>

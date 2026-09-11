@@ -50,6 +50,38 @@ interface TopBarProps {
   sidebarCollapsed?: boolean;
 }
 
+// Isolated ClockBadge sub-component to eliminate 1-second full-TopBar re-renders
+const ClockBadge: React.FC = React.memo(() => {
+  const get24HourTime = () => {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  const [time, setTime] = useState<string>(get24HourTime);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(get24HourTime());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      className="topbar-clock-badge"
+      title="Local Time"
+      tabIndex={0}
+      aria-label={`Current time: ${time}`}
+    >
+      <Clock size={13} className="topbar-clock-icon" style={{ color: 'var(--accent-primary)', flexShrink: 0, transition: 'color 220ms ease' }} />
+      <span className="font-mono tabular-nums">{time}</span>
+    </div>
+  );
+});
+
 export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing,
@@ -177,24 +209,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   const showDropdown = searchFocused && searchTerm.trim().length > 0;
-
-  // Live real-time browser clock in 24-hour format (HH:mm:ss, updates every 1 second)
-  const get24HourTime = () => {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const s = String(now.getSeconds()).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-  };
-
-  const [currentTime, setCurrentTime] = useState<string>(get24HourTime);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(get24HourTime());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <header
@@ -461,15 +475,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         }}
       >
         {/* Live Clock Badge */}
-        <div
-          className="topbar-clock-badge"
-          title="Local Time"
-          tabIndex={0}
-          aria-label={`Current time: ${currentTime}`}
-        >
-          <Clock size={13} className="topbar-clock-icon" style={{ color: 'var(--accent-primary)', flexShrink: 0, transition: 'color 220ms ease' }} />
-          <span className="font-mono tabular-nums">{currentTime}</span>
-        </div>
+        <ClockBadge />
 
         {/* Live API Status Badge */}
         <div
