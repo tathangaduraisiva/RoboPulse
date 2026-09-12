@@ -18,7 +18,7 @@ import { fetchProductionLines } from './api/productionLines';
 import { fetchAlerts } from './api/alerts';
 import { fetchMaintenance } from './api/maintenance';
 import { fetchPredictions } from './api/predictions';
-import { fetchHealthStatus } from './api/health';
+import { fetchHealthStatus, warmUpBackend } from './api/health';
 import { clearSensorCache } from './api/sensors';
 import { loginUser, registerUser } from './api/auth';
 import { Sidebar } from './components/layout/Sidebar';
@@ -249,9 +249,20 @@ function AppShell({ user, onLogout }: AppShellProps) {
   }, []);
 
   useEffect(() => {
-    executeFleetFetch();
-    const interval = setInterval(executeFleetFetch, 10000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    void warmUpBackend().then(() => {
+      if (cancelled) return;
+
+      executeFleetFetch();
+      interval = setInterval(executeFleetFetch, 10000);
+    });
+
+    return () => {
+      cancelled = true;
+      if (interval !== null) clearInterval(interval);
+    };
   }, [executeFleetFetch]);
 
   // Enqueue new toasts; drain one per second so they stagger 1 000 ms apart.
@@ -566,6 +577,10 @@ function AppShell({ user, onLogout }: AppShellProps) {
 // Root App with BrowserRouter + auth guard
 // -----------------------------------------------------------------
 function App() {
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
+
   const [user, setUser] = useState<UserSession | null>(() => {
     try {
       const stored = localStorage.getItem('robopulse_user');
